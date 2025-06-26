@@ -1,0 +1,116 @@
+<div class="box tabular">
+  <h3>OAuth SSO Configuration</h3>
+  
+  <p>
+    <%= content_tag 'label', check_box_tag('settings[oauth_enabled]', '1', @settings['oauth_enabled']) + ' Enable OAuth SSO' %>
+  </p>
+  
+  <div id="oauth_sso_only_warning" style="display: none; background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 15px 0; border-radius: 4px;">
+    <h4 style="color: #856404; margin-top: 0;">⚠️ Warning: SSO-Only Mode</h4>
+    <p style="color: #856404; margin-bottom: 0;">
+      <strong>Enabling SSO-Only mode will disable the standard username/password login form.</strong><br>
+      If you cannot log in through your OAuth provider, you can disable this setting via rake command:
+    </p>
+    <pre style="background-color: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 3px; font-size: 12px;">rake redmine:bless_this_sso:disable_sso_only</pre>
+    <p style="color: #856404; margin-bottom: 0;">
+      Or via database if rake is unavailable:
+    </p>
+    <pre style="background-color: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 3px; font-size: 12px;">UPDATE settings SET value = REPLACE(value, '"oauth_sso_only":"1"', '"oauth_sso_only":"0"') WHERE name = 'plugin_bless_this_redmine_sso';</pre>
+    <p style="color: #856404; margin-bottom: 0;">
+      <strong>Please ensure your OAuth configuration is working correctly before enabling SSO-Only mode!</strong>
+    </p>
+  </div>
+  
+  <p>
+    <%= content_tag 'label', check_box_tag('settings[oauth_sso_only]', '1', @settings['oauth_sso_only'], :id => 'oauth_sso_only_checkbox') + ' SSO-Only Mode (disable username/password login)' %>
+  </p>
+  
+  <h4>OAuth Provider Configuration</h4>
+  
+  <p>
+    <%= content_tag 'label', 'Provider Name:' %>
+    <%= text_field_tag 'settings[oauth_provider_name]', @settings['oauth_provider_name'], :placeholder => 'e.g., Company SSO, Google, etc.' %>
+    <em>Display name for the OAuth provider shown on login button</em>
+  </p>
+  
+  <p>
+    <%= content_tag 'label', 'Client ID:' %>
+    <%= text_field_tag 'settings[oauth_client_id]', @settings['oauth_client_id'], :placeholder => 'your-client-id' %>
+  </p>
+  
+  <p>
+    <%= content_tag 'label', 'Client Secret:' %>
+    <%= password_field_tag 'settings[oauth_client_secret]', @settings['oauth_client_secret'], :placeholder => 'your-client-secret' %>
+  </p>
+  
+  <p>
+    <%= content_tag 'label', 'Authorization URL:' %>
+    <%= text_field_tag 'settings[oauth_authorize_url]', @settings['oauth_authorize_url'], :placeholder => 'https://your-provider.com/oauth/authorize' %>
+    <em>OAuth authorization endpoint</em>
+  </p>
+  
+  <p>
+    <%= content_tag 'label', 'Token URL:' %>
+    <%= text_field_tag 'settings[oauth_token_url]', @settings['oauth_token_url'], :placeholder => 'https://your-provider.com/oauth/token' %>
+    <em>OAuth token exchange endpoint</em>
+  </p>
+  
+  <p>
+    <%= content_tag 'label', 'User Info URL:' %>
+    <%= text_field_tag 'settings[oauth_userinfo_url]', @settings['oauth_userinfo_url'], :placeholder => 'https://your-provider.com/api/user' %>
+    <em>Endpoint to retrieve user information</em>
+  </p>
+  
+  <p>
+    <%= content_tag 'label', 'Scope:' %>
+    <%= text_field_tag 'settings[oauth_scope]', @settings['oauth_scope'], :placeholder => 'openid email profile' %>
+    <em>OAuth scopes to request (space-separated)</em>
+  </p>
+  
+  <p>
+    <%= content_tag 'label', 'Redirect URI:' %>
+    <%= text_field_tag 'settings[oauth_redirect_uri]', @settings['oauth_redirect_uri'], :placeholder => 'Leave empty to auto-generate' %>
+    <em>OAuth callback URL (leave empty to use: <%= "#{request.base_url}/oauth/callback" %>)</em>
+  </p>
+  
+  <h4>Example Configurations</h4>
+  
+  <div style="background-color: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 4px;">
+    <h5>For Casdoor:</h5>
+    <ul>
+      <li><strong>Authorization URL:</strong> http://localhost:8082/login/oauth/authorize</li>
+      <li><strong>Token URL:</strong> http://casdoor_app:8000/api/login/oauth/access_token</li>
+      <li><strong>User Info URL:</strong> http://casdoor_app:8000/api/get-account</li>
+      <li><strong>Scope:</strong> openid email profile</li>
+    </ul>
+    
+    <h5>For Google OAuth:</h5>
+    <ul>
+      <li><strong>Authorization URL:</strong> https://accounts.google.com/o/oauth2/v2/auth</li>
+      <li><strong>Token URL:</strong> https://oauth2.googleapis.com/token</li>
+      <li><strong>User Info URL:</strong> https://www.googleapis.com/oauth2/v2/userinfo</li>
+      <li><strong>Scope:</strong> openid email profile</li>
+    </ul>
+  </div>
+</div>
+
+<script type="text/javascript">
+document.addEventListener('DOMContentLoaded', function() {
+  var ssoOnlyCheckbox = document.getElementById('oauth_sso_only_checkbox');
+  var warningDiv = document.getElementById('oauth_sso_only_warning');
+  
+  function toggleWarning() {
+    if (ssoOnlyCheckbox.checked) {
+      warningDiv.style.display = 'block';
+    } else {
+      warningDiv.style.display = 'none';
+    }
+  }
+  
+  // Show warning if SSO-only is already enabled
+  toggleWarning();
+  
+  // Toggle warning when checkbox changes
+  ssoOnlyCheckbox.addEventListener('change', toggleWarning);
+});
+</script>
