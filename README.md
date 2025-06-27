@@ -1,4 +1,4 @@
-# BlessThis Redmine SSO Plugin
+# Bless This Redmine SSO Plugin
 
 A comprehensive OAuth/OpenID Connect SSO plugin for Redmine that supports any OAuth 2.0 provider by BlessThis.software.
 
