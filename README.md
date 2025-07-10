@@ -15,7 +15,7 @@ A comprehensive OAuth/OpenID Connect SSO plugin for Redmine that supports any OA
 
 1. Copy the plugin to your Redmine plugins directory:
    ```bash
-   git clone https://github.com/murich/bless-this-redmine-sso.git /path/to/redmine/plugins/bless-this-redmine-sso/
+   git clone https://github.com/murich/bless-this-redmine-sso.git /path/to/redmine/plugins/bless_this_redmine_sso/
    ```
 
 2. Install plugin dependencies (if any):
