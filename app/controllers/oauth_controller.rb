@@ -167,8 +167,8 @@ class OauthController < ApplicationController
     first_name = user_info['given_name'] || user_info['firstName'] || user_info['first_name'] || ''
     last_name = user_info['family_name'] || user_info['lastName'] || user_info['last_name'] || ''
 
-    # Find existing user by login or email
-    user = User.find_by(login: username) || User.find_by(mail: email)
+    # Find existing user
+    user = User.find_by(login: username)
 
     unless user
       # Create new user
@@ -201,10 +201,6 @@ class OauthController < ApplicationController
       end
       if user.lastname != last_name && last_name.present?
         user.lastname = last_name
-        updated = true
-      end
-      if user.mail != email && email.present?
-        user.mail = email
         updated = true
       end
       
