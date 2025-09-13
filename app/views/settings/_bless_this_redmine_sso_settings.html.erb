@@ -1,95 +1,196 @@
 <div class="box tabular">
-  <h3>OAuth SSO Configuration</h3>
-  
+  <h3><%= l(:label_oauth_sso_configuration, scope: :bless_this_redmine_sso) %></h3>
+
   <p>
-    <%= content_tag 'label', check_box_tag('settings[oauth_enabled]', '1', @settings['oauth_enabled']) + ' Enable OAuth SSO' %>
+    <%= content_tag 'label', l(:label_enable_oauth_sso, scope: :bless_this_redmine_sso) %>
+    <%= check_box_tag('settings[oauth_enabled]', '1', @settings['oauth_enabled']) %>
   </p>
-  
+
   <div id="oauth_sso_only_warning" style="display: none; background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 15px 0; border-radius: 4px;">
-    <h4 style="color: #856404; margin-top: 0;">⚠️ Warning: SSO-Only Mode</h4>
+    <h4 style="color: #856404; margin-top: 0;">⚠️ <%= l(:warning_sso_only, scope: :bless_this_redmine_sso) %></h4>
     <p style="color: #856404; margin-bottom: 0;">
-      <strong>Enabling SSO-Only mode will disable the standard username/password login form.</strong><br>
-      If you cannot log in through your OAuth provider, you can disable this setting via rake command:
+      <%= l(:warning_sso_only_tip_html, scope: :bless_this_redmine_sso).html_safe %>
     </p>
-    <pre style="background-color: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 3px; font-size: 12px;">rake redmine:bless_this_sso:disable_sso_only</pre>
+    <pre style="background-color: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 3px; font-size: 12px;"><%= l(:warning_sso_only_command, scope: :bless_this_redmine_sso) %></pre>
     <p style="color: #856404; margin-bottom: 0;">
-      Or via database if rake is unavailable:
+      <%= l(:warning_sso_only_db_tip_html, scope: :bless_this_redmine_sso).html_safe %>
     </p>
-    <pre style="background-color: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 3px; font-size: 12px;">UPDATE settings SET value = REPLACE(value, '"oauth_sso_only":"1"', '"oauth_sso_only":"0"') WHERE name = 'plugin_bless_this_redmine_sso';</pre>
+    <pre style="background-color: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 3px; font-size: 12px;"><%= l(:warning_sso_only_db_command, scope: :bless_this_redmine_sso) %></pre>
     <p style="color: #856404; margin-bottom: 0;">
-      <strong>Please ensure your OAuth configuration is working correctly before enabling SSO-Only mode!</strong>
+      <%= l(:warning_sso_only_footer_html, scope: :bless_this_redmine_sso).html_safe %>
     </p>
   </div>
-  
+
   <p>
-    <%= content_tag 'label', check_box_tag('settings[oauth_sso_only]', '1', @settings['oauth_sso_only'], :id => 'oauth_sso_only_checkbox') + ' SSO-Only Mode (disable username/password login)' %>
+    <%= content_tag 'label', l(:label_sso_only_mode, scope: :bless_this_redmine_sso) %>
+    <%= check_box_tag('settings[oauth_sso_only]', '1', @settings['oauth_sso_only'], id: 'oauth_sso_only_checkbox') %>
+    <em><%= l(:label_disable_username_password_login, scope: :bless_this_redmine_sso) %></em>
   </p>
-  
-  <h4>OAuth Provider Configuration</h4>
-  
+
+  <h4><%= l(:label_oauth_provider_configuration, scope: :bless_this_redmine_sso) %></h4>
+
   <p>
-    <%= content_tag 'label', 'Provider Name:' %>
-    <%= text_field_tag 'settings[oauth_provider_name]', @settings['oauth_provider_name'], :placeholder => 'e.g., Company SSO, Google, etc.' %>
-    <em>Display name for the OAuth provider shown on login button</em>
+    <%= content_tag 'label', l(:label_provider_name, scope: :bless_this_redmine_sso) + ':' %>
+    <%= text_field_tag 'settings[oauth_provider_name]', @settings['oauth_provider_name'], placeholder: l(:placeholder_provider_name, scope: :bless_this_redmine_sso) %>
+    <em><%= l(:hint_provider_name, scope: :bless_this_redmine_sso) %></em>
   </p>
-  
+
   <p>
-    <%= content_tag 'label', 'Client ID:' %>
-    <%= text_field_tag 'settings[oauth_client_id]', @settings['oauth_client_id'], :placeholder => 'your-client-id' %>
+    <%= content_tag 'label', l(:label_client_id, scope: :bless_this_redmine_sso) + ':' %>
+    <%= text_field_tag 'settings[oauth_client_id]', @settings['oauth_client_id'], placeholder: l(:placeholder_client_id, scope: :bless_this_redmine_sso) %>
   </p>
-  
+
   <p>
-    <%= content_tag 'label', 'Client Secret:' %>
-    <%= password_field_tag 'settings[oauth_client_secret]', @settings['oauth_client_secret'], :placeholder => 'your-client-secret' %>
+    <%= content_tag 'label', l(:label_client_secret, scope: :bless_this_redmine_sso) + ':' %>
+    <%= password_field_tag 'settings[oauth_client_secret]', @settings['oauth_client_secret'], placeholder: l(:placeholder_client_secret, scope: :bless_this_redmine_sso) %>
   </p>
-  
+
   <p>
-    <%= content_tag 'label', 'Authorization URL:' %>
-    <%= text_field_tag 'settings[oauth_authorize_url]', @settings['oauth_authorize_url'], :placeholder => 'https://your-provider.com/oauth/authorize' %>
-    <em>OAuth authorization endpoint</em>
+    <%= content_tag 'label', l(:label_authorize_url, scope: :bless_this_redmine_sso) + ':' %>
+    <%= text_field_tag 'settings[oauth_authorize_url]', @settings['oauth_authorize_url'], placeholder: l(:placeholder_authorize_url, scope: :bless_this_redmine_sso) %>
+    <em><%= l(:hint_authorize_url, scope: :bless_this_redmine_sso) %></em>
   </p>
-  
+
   <p>
-    <%= content_tag 'label', 'Token URL:' %>
-    <%= text_field_tag 'settings[oauth_token_url]', @settings['oauth_token_url'], :placeholder => 'https://your-provider.com/oauth/token' %>
-    <em>OAuth token exchange endpoint</em>
+    <%= content_tag 'label', l(:label_token_url, scope: :bless_this_redmine_sso) + ':' %>
+    <%= text_field_tag 'settings[oauth_token_url]', @settings['oauth_token_url'], placeholder: l(:placeholder_token_url, scope: :bless_this_redmine_sso) %>
+    <em><%= l(:hint_token_url, scope: :bless_this_redmine_sso) %></em>
   </p>
-  
+
   <p>
-    <%= content_tag 'label', 'User Info URL:' %>
-    <%= text_field_tag 'settings[oauth_userinfo_url]', @settings['oauth_userinfo_url'], :placeholder => 'https://your-provider.com/api/user' %>
-    <em>Endpoint to retrieve user information</em>
+    <%= content_tag 'label', l(:label_userinfo_url, scope: :bless_this_redmine_sso) + ':' %>
+    <%= text_field_tag 'settings[oauth_userinfo_url]', @settings['oauth_userinfo_url'], placeholder: l(:placeholder_userinfo_url, scope: :bless_this_redmine_sso) %>
+    <em><%= l(:hint_userinfo_url, scope: :bless_this_redmine_sso) %></em>
   </p>
-  
+
   <p>
-    <%= content_tag 'label', 'Scope:' %>
-    <%= text_field_tag 'settings[oauth_scope]', @settings['oauth_scope'], :placeholder => 'openid email profile' %>
-    <em>OAuth scopes to request (space-separated)</em>
+    <%= content_tag 'label', l(:label_scope, scope: :bless_this_redmine_sso) + ':' %>
+    <%= text_field_tag 'settings[oauth_scope]', @settings['oauth_scope'], placeholder: l(:placeholder_scope, scope: :bless_this_redmine_sso) %>
+    <em><%= l(:hint_scope, scope: :bless_this_redmine_sso) %></em>
   </p>
-  
+
   <p>
-    <%= content_tag 'label', 'Redirect URI:' %>
-    <%= text_field_tag 'settings[oauth_redirect_uri]', @settings['oauth_redirect_uri'], :placeholder => 'Leave empty to auto-generate' %>
-    <em>OAuth callback URL (leave empty to use: <%= "#{request.base_url}/oauth/callback" %>)</em>
+    <%= content_tag 'label', l(:label_redirect_uri, scope: :bless_this_redmine_sso) + ':' %>
+    <%= text_field_tag 'settings[oauth_redirect_uri]', @settings['oauth_redirect_uri'], placeholder: l(:placeholder_redirect_uri, scope: :bless_this_redmine_sso) %>
+    <em><%= l(:hint_redirect_uri, scope: :bless_this_redmine_sso, url: "#{request.base_url}/oauth/callback") %></em>
   </p>
-  
-  <h4>Example Configurations</h4>
-  
+
+  <p>
+    <%= content_tag 'label', l(:label_logout_url, scope: :bless_this_redmine_sso) + ':' %>
+    <%= text_field_tag 'settings[oauth_logout_url]', @settings['oauth_logout_url'], placeholder: l(:placeholder_logout_url, scope: :bless_this_redmine_sso) %>
+    <em><%= l(:hint_logout_url, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
+  <h4><%= l(:label_user_mapping, scope: :bless_this_redmine_sso) %></h4>
+
+  <p>
+    <%= content_tag 'label', l(:label_match_by_email, scope: :bless_this_redmine_sso) %>
+    <%= check_box_tag('settings[oauth_match_by_email]', '1', @settings['oauth_match_by_email']) %>
+    <em><%= l(:hint_match_by_email, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
+  <p>
+    <%= content_tag 'label', l(:label_bypass_twofa, scope: :bless_this_redmine_sso) %>
+    <%= check_box_tag('settings[oauth_bypass_twofa]', '1', @settings['oauth_bypass_twofa']) %>
+    <em><%= l(:hint_bypass_twofa, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
+  <p>
+    <%= content_tag 'label', l(:label_mapping_preset, scope: :bless_this_redmine_sso) + ':' %>
+    <%= select_tag 'settings[oauth_mapping_preset]', options_for_select([
+      [l(:label_generic_openid, scope: :bless_this_redmine_sso), 'generic'],
+      [l(:label_microsoft, scope: :bless_this_redmine_sso), 'microsoft'],
+      [l(:label_google, scope: :bless_this_redmine_sso), 'google']
+    ], @settings['oauth_mapping_preset']), id: 'oauth_mapping_preset' %>
+    <em><%= l(:hint_mapping_preset, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
+  <p>
+    <%= content_tag 'label', l(:label_login_field, scope: :bless_this_redmine_sso) + ':' %>
+    <%= text_field_tag 'settings[oauth_login_field]', @settings['oauth_login_field'], placeholder: l(:placeholder_login_field, scope: :bless_this_redmine_sso) %>
+    <em><%= l(:hint_login_field, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
+  <p>
+    <%= content_tag 'label', l(:label_email_field, scope: :bless_this_redmine_sso) + ':' %>
+    <%= text_field_tag 'settings[oauth_email_field]', @settings['oauth_email_field'], placeholder: l(:placeholder_email_field, scope: :bless_this_redmine_sso) %>
+    <em><%= l(:hint_email_field, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
+  <p>
+    <%= content_tag 'label', l(:label_firstname_field, scope: :bless_this_redmine_sso) + ':' %>
+    <%= text_field_tag 'settings[oauth_firstname_field]', @settings['oauth_firstname_field'], placeholder: l(:placeholder_firstname_field, scope: :bless_this_redmine_sso) %>
+    <em><%= l(:hint_firstname_field, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
+  <p>
+    <%= content_tag 'label', l(:label_lastname_field, scope: :bless_this_redmine_sso) + ':' %>
+    <%= text_field_tag 'settings[oauth_lastname_field]', @settings['oauth_lastname_field'], placeholder: l(:placeholder_lastname_field, scope: :bless_this_redmine_sso) %>
+    <em><%= l(:hint_lastname_field, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
+  <% if defined?(UserCustomField) %>
+    <% UserCustomField.order(:name).each do |cf| %>
+      <p>
+        <%= content_tag 'label', l(:label_custom_field, scope: :bless_this_redmine_sso, name: cf.name) %>
+        <%= text_field_tag "settings[oauth_custom_field_#{cf.id}]", @settings["oauth_custom_field_#{cf.id}"], placeholder: l(:placeholder_custom_field, scope: :bless_this_redmine_sso) %>
+        <em><%= l(:hint_custom_field, scope: :bless_this_redmine_sso) %></em>
+      </p>
+    <% end %>
+  <% end %>
+
+  <p>
+    <em><%= l(:hint_tip_validate_flow_html, scope: :bless_this_redmine_sso).html_safe %></em>
+  </p>
+
+  <h4><%= l(:label_user_provisioning, scope: :bless_this_redmine_sso) %></h4>
+
+  <p>
+    <%= content_tag 'label', l(:label_auto_create, scope: :bless_this_redmine_sso) %>
+    <%= check_box_tag('settings[oauth_auto_create]', '1', @settings['oauth_auto_create']) %>
+    <em><%= l(:hint_auto_create, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
+  <p>
+    <%= content_tag 'label', l(:label_update_existing, scope: :bless_this_redmine_sso) %>
+    <%= check_box_tag('settings[oauth_update_existing]', '1', @settings['oauth_update_existing']) %>
+    <em><%= l(:hint_update_existing, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
+  <p>
+    <%= content_tag 'label', l(:label_default_groups, scope: :bless_this_redmine_sso) + ':' %>
+    <%= text_field_tag 'settings[oauth_default_groups]', @settings['oauth_default_groups'], placeholder: l(:placeholder_default_groups, scope: :bless_this_redmine_sso) %>
+    <em><%= l(:hint_default_groups, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
+  <h4><%= l(:label_example_configurations, scope: :bless_this_redmine_sso) %></h4>
+
   <div style="background-color: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 4px;">
-    <h5>For Casdoor:</h5>
+    <h5><%= l(:label_for_casdoor, scope: :bless_this_redmine_sso) %></h5>
     <ul>
-      <li><strong>Authorization URL:</strong> http://localhost:8082/login/oauth/authorize</li>
-      <li><strong>Token URL:</strong> http://casdoor_app:8000/api/login/oauth/access_token</li>
-      <li><strong>User Info URL:</strong> http://casdoor_app:8000/api/get-account</li>
-      <li><strong>Scope:</strong> openid email profile</li>
+      <li><strong><%= l(:label_authorize_url, scope: :bless_this_redmine_sso) %>:</strong> http://localhost:8082/login/oauth/authorize</li>
+      <li><strong><%= l(:label_token_url, scope: :bless_this_redmine_sso) %>:</strong> http://casdoor_app:8000/api/login/oauth/access_token</li>
+      <li><strong><%= l(:label_userinfo_url, scope: :bless_this_redmine_sso) %>:</strong> http://casdoor_app:8000/api/get-account</li>
+      <li><strong><%= l(:label_logout_url, scope: :bless_this_redmine_sso) %>:</strong> http://casdoor_app:8000/logout</li>
+      <li><strong><%= l(:label_scope, scope: :bless_this_redmine_sso) %>:</strong> openid email profile</li>
     </ul>
-    
-    <h5>For Google OAuth:</h5>
+
+    <h5><%= l(:label_for_google, scope: :bless_this_redmine_sso) %></h5>
     <ul>
-      <li><strong>Authorization URL:</strong> https://accounts.google.com/o/oauth2/v2/auth</li>
-      <li><strong>Token URL:</strong> https://oauth2.googleapis.com/token</li>
-      <li><strong>User Info URL:</strong> https://www.googleapis.com/oauth2/v2/userinfo</li>
-      <li><strong>Scope:</strong> openid email profile</li>
+      <li><strong><%= l(:label_authorize_url, scope: :bless_this_redmine_sso) %>:</strong> https://accounts.google.com/o/oauth2/v2/auth</li>
+      <li><strong><%= l(:label_token_url, scope: :bless_this_redmine_sso) %>:</strong> https://oauth2.googleapis.com/token</li>
+      <li><strong><%= l(:label_userinfo_url, scope: :bless_this_redmine_sso) %>:</strong> https://www.googleapis.com/oauth2/v2/userinfo</li>
+      <li><strong><%= l(:label_logout_url, scope: :bless_this_redmine_sso) %>:</strong> https://accounts.google.com/logout</li>
+      <li><strong><%= l(:label_scope, scope: :bless_this_redmine_sso) %>:</strong> openid email profile</li>
+    </ul>
+
+    <h5><%= l(:label_for_microsoft, scope: :bless_this_redmine_sso) %></h5>
+    <ul>
+      <li><strong><%= l(:label_authorize_url, scope: :bless_this_redmine_sso) %>:</strong> https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize</li>
+      <li><strong><%= l(:label_token_url, scope: :bless_this_redmine_sso) %>:</strong> https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token</li>
+      <li><strong><%= l(:label_userinfo_url, scope: :bless_this_redmine_sso) %>:</strong> https://graph.microsoft.com/v1.0/me</li>
+      <li><strong><%= l(:label_logout_url, scope: :bless_this_redmine_sso) %>:</strong> https://login.microsoftonline.com/{tenant}/oauth2/v2.0/logout</li>
+      <li><strong><%= l(:label_scope, scope: :bless_this_redmine_sso) %>:</strong> openid email profile User.Read</li>
     </ul>
   </div>
 </div>
@@ -98,7 +199,12 @@
 document.addEventListener('DOMContentLoaded', function() {
   var ssoOnlyCheckbox = document.getElementById('oauth_sso_only_checkbox');
   var warningDiv = document.getElementById('oauth_sso_only_warning');
-  
+  var presetSelect = document.getElementById('oauth_mapping_preset');
+  var loginField = document.getElementById('settings_oauth_login_field');
+  var emailField = document.getElementById('settings_oauth_email_field');
+  var firstnameField = document.getElementById('settings_oauth_firstname_field');
+  var lastnameField = document.getElementById('settings_oauth_lastname_field');
+
   function toggleWarning() {
     if (ssoOnlyCheckbox.checked) {
       warningDiv.style.display = 'block';
@@ -106,11 +212,45 @@ document.addEventListener('DOMContentLoaded', function() {
       warningDiv.style.display = 'none';
     }
   }
-  
+
   // Show warning if SSO-only is already enabled
   toggleWarning();
-  
+
   // Toggle warning when checkbox changes
   ssoOnlyCheckbox.addEventListener('change', toggleWarning);
+
+  var presets = {
+    generic: {
+      login: 'name,preferred_username,sub,login,userPrincipalName',
+      email: 'email,mail,userPrincipalName',
+      firstname: 'given_name,firstName,first_name,givenName',
+      lastname: 'family_name,lastName,last_name,sn'
+    },
+    microsoft: {
+      login: 'userPrincipalName',
+      email: 'mail,userPrincipalName',
+      firstname: 'givenName',
+      lastname: 'sn,surname'
+    },
+    google: {
+      login: 'email',
+      email: 'email',
+      firstname: 'given_name',
+      lastname: 'family_name'
+    }
+  };
+
+  function applyPreset() {
+    var p = presets[presetSelect.value];
+    if (p) {
+      loginField.value = p.login;
+      emailField.value = p.email;
+      firstnameField.value = p.firstname;
+      lastnameField.value = p.lastname;
+    }
+  }
+
+  presetSelect && presetSelect.addEventListener('change', applyPreset);
 });
 </script>
+

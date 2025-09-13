@@ -1,12 +1,17 @@
+require 'json'
+require 'securerandom'
+require 'uri'
+
 class OauthController < ApplicationController
-  skip_before_action :verify_authenticity_token
+  # Allow OAuth endpoints to be accessed without prior Redmine login
+  skip_before_action :check_if_login_required, only: %i[authorize callback], raise: false
   
   def authorize
     # Redirect to OAuth authorization endpoint
     settings = Setting.plugin_bless_this_redmine_sso
     
     unless oauth_configured?
-      flash[:error] = "OAuth SSO is not properly configured"
+      flash[:error] = l(:flash_oauth_not_configured, scope: :bless_this_redmine_sso)
       redirect_to signin_path
       return
     end
@@ -20,24 +25,28 @@ class OauthController < ApplicationController
     state = SecureRandom.hex(16)
     session[:oauth_state] = state
     
-    auth_url = "#{authorize_url}?" \
-               "client_id=#{CGI.escape(client_id)}&" \
-               "redirect_uri=#{CGI.escape(redirect_uri)}&" \
-               "scope=#{CGI.escape(scope)}&" \
-               "response_type=code&" \
-               "state=#{CGI.escape(state)}"
+    params = {
+      client_id: client_id,
+      redirect_uri: redirect_uri,
+      scope: scope,
+      response_type: 'code',
+      state: state
+    }
+
+    auth_url = "#{authorize_url}?#{URI.encode_www_form(params)}"
     
     redirect_to auth_url
   end
   
   def callback
     # Handle callback from OAuth provider
+    settings = Setting.plugin_bless_this_redmine_sso
     code = params[:code]
     state = params[:state]
     
     # Verify state parameter
     unless state.present? && state == session[:oauth_state]
-      flash[:error] = "Invalid OAuth state parameter"
+      flash[:error] = l(:flash_invalid_state, scope: :bless_this_redmine_sso)
       redirect_to signin_path
       return
     end
@@ -57,35 +66,42 @@ class OauthController < ApplicationController
           if user_info
             # Find or create user in Redmine
             user = find_or_create_user(user_info)
-            
-            if user&.active?
+            if user == :user_not_found
+              flash[:error] = l(:flash_authentication_failed, scope: :bless_this_redmine_sso)
+              redirect_to signin_path
+            elsif user&.errors&.any?
+              flash[:error] = user.errors.full_messages.join(', ')
+              redirect_to signin_path
+            elsif user&.active?
               # Log the user in
               user.last_login_on = Time.now
               user.save!
               self.logged_user = user
+              session[:oauth_logged_in] = true
+              session.delete(:must_activate_twofa) if %w[1 true].include?(settings['oauth_bypass_twofa'].to_s.downcase)
               Rails.logger.info "Successful OAuth authentication for '#{user.login}' from #{request.remote_ip}"
               redirect_to my_page_path
             else
-              flash[:error] = "User account is not active"
+              flash[:error] = l(:flash_user_inactive, scope: :bless_this_redmine_sso)
               redirect_to signin_path
             end
           else
-            flash[:error] = "Failed to get user information from OAuth provider"
+            flash[:error] = l(:flash_user_info_failed, scope: :bless_this_redmine_sso)
             redirect_to signin_path
           end
         else
-          flash[:error] = "Failed to exchange authorization code"
+          flash[:error] = l(:flash_exchange_code_failed, scope: :bless_this_redmine_sso)
           redirect_to signin_path
         end
       rescue => e
         Rails.logger.error "OAuth callback error: #{e.message}"
         Rails.logger.error e.backtrace.join("\n")
-        flash[:error] = "Authentication failed"
+        flash[:error] = l(:flash_authentication_failed, scope: :bless_this_redmine_sso)
         redirect_to signin_path
       end
     else
-      error_msg = params[:error] || "Unknown error"
-      flash[:error] = "OAuth failed: #{error_msg}"
+      error_msg = params[:error] || l(:flash_unknown_error, scope: :bless_this_redmine_sso)
+      flash[:error] = l(:flash_oauth_failed, scope: :bless_this_redmine_sso, error: error_msg)
       redirect_to signin_path
     end
   end
@@ -94,9 +110,15 @@ class OauthController < ApplicationController
 
   def oauth_configured?
     settings = Setting.plugin_bless_this_redmine_sso
-    return false unless settings['oauth_enabled']
-    
-    required_settings = ['oauth_client_id', 'oauth_client_secret', 'oauth_authorize_url', 'oauth_token_url', 'oauth_userinfo_url']
+    return false unless %w[1 true].include?(settings['oauth_enabled'].to_s.downcase)
+
+    required_settings = [
+      'oauth_client_id',
+      'oauth_client_secret',
+      'oauth_authorize_url',
+      'oauth_token_url',
+      'oauth_userinfo_url'
+    ]
     required_settings.all? { |setting| settings[setting].present? }
   end
 
@@ -161,56 +183,160 @@ class OauthController < ApplicationController
   end
 
   def find_or_create_user(user_info)
-    # Extract user data from OAuth response
-    username = user_info['name'] || user_info['preferred_username'] || user_info['sub'] || user_info['login']
-    email = user_info['email']
-    first_name = user_info['given_name'] || user_info['firstName'] || user_info['first_name'] || ''
-    last_name = user_info['family_name'] || user_info['lastName'] || user_info['last_name'] || ''
+    # Extract user data from OAuth response using configurable mappings
+    settings = Setting.plugin_bless_this_redmine_sso
 
-    # Find existing user by login or email
-    user = User.find_by(login: username) || User.find_by(mail: email)
+    login_keys = settings['oauth_login_field'].to_s.split(',').map(&:strip)
+    email_keys = settings['oauth_email_field'].to_s.split(',').map(&:strip)
+    firstname_keys = settings['oauth_firstname_field'].to_s.split(',').map(&:strip)
+    lastname_keys = settings['oauth_lastname_field'].to_s.split(',').map(&:strip)
+
+    resolved_custom_fields = {}
+    if defined?(UserCustomField)
+      UserCustomField.all.each do |cf|
+        key_setting = settings["oauth_custom_field_#{cf.id}"]
+        next if key_setting.blank?
+        key_list = key_setting.to_s.split(',').map(&:strip)
+        value = key_list.map { |key| user_info[key] }.find(&:present?)
+        next if value.blank?
+        resolved_custom_fields[cf.id.to_s] = value
+      end
+    end
+
+    username = login_keys.map { |key| user_info[key] }.find(&:present?) ||
+               user_info['name'] || user_info['preferred_username'] || user_info['sub'] || user_info['login']
+    email = email_keys.map { |key| user_info[key] }.find(&:present?) ||
+            user_info['email']
+    email = email.to_s.downcase if email.present?
+    first_name = firstname_keys.map { |key| user_info[key] }.find(&:present?) ||
+                 user_info['given_name'] || user_info['firstName'] || user_info['first_name'] || ''
+    last_name = lastname_keys.map { |key| user_info[key] }.find(&:present?) ||
+                user_info['family_name'] || user_info['lastName'] || user_info['last_name'] || ''
+
+    # Find existing user by login. Optionally allow email-based association
+    # when explicitly enabled in settings.
+    match_by_email = %w[1 true].include?(settings['oauth_match_by_email'].to_s.downcase)
+
+    user = User.find_by(login: username) if username.present?
+    if user.nil? && match_by_email && email.present?
+      user = User.find_by_mail(email)
+    end
 
     unless user
-      # Create new user
+      auto_create = %w[1 true].include?(settings['oauth_auto_create'].to_s.downcase)
+      return :user_not_found unless auto_create
+
       user = User.new(
         login: username,
-        mail: email,
         firstname: first_name,
         lastname: last_name,
         status: User::STATUS_ACTIVE,
         language: Setting.default_language,
         mail_notification: Setting.default_notification_option
       )
-      
-      # Set a random password (user will use OAuth)
-      user.password = SecureRandom.hex(20)
-      user.password_confirmation = user.password
-      
+      user.build_email_address(address: email) if email.present?
+
+      # Set a random password (user will use OAuth). Prefer Redmine's own
+      # generator when available so it respects configured password policies,
+      # otherwise fall back to our local implementation.
+      if user.respond_to?(:random_password)
+        user.random_password
+      else
+        password = generate_random_password
+        user.password = password
+        user.password_confirmation = password
+      end
+
+      user.custom_field_values = resolved_custom_fields if resolved_custom_fields.any?
+
       if user.save
         Rails.logger.info "Created new user via OAuth: #{username}"
+
+        settings['oauth_default_groups'].to_s.split(',').map(&:strip).reject(&:blank?).each do |gid|
+          begin
+            group = Group.find(gid)
+            user.groups << group unless user.groups.include?(group)
+          rescue ActiveRecord::RecordNotFound
+            Rails.logger.warn "Default group not found: #{gid}"
+          end
+        end
+        unless user.save
+          Rails.logger.error "Failed to update user groups: #{user.errors.full_messages.join(', ')}"
+          return user
+        end
       else
         Rails.logger.error "Failed to create user: #{user.errors.full_messages.join(', ')}"
-        return nil
+        return user
       end
     else
       # Update user info from OAuth if needed
+      update_existing = %w[1 true].include?(settings['oauth_update_existing'].to_s.downcase)
       updated = false
-      if user.firstname != first_name && first_name.present?
-        user.firstname = first_name
-        updated = true
+      if update_existing
+        if user.firstname != first_name && first_name.present?
+          user.firstname = first_name
+          updated = true
+        end
+        if user.lastname != last_name && last_name.present?
+          user.lastname = last_name
+          updated = true
+        end
+        if email.present? && !user.mail.casecmp?(email)
+          if user.email_address
+            user.email_address.update(address: email)
+          else
+            user.build_email_address(address: email)
+          end
+          updated = true
+        end
+
+        resolved_custom_fields.each do |cf_id, value|
+          if user.custom_field_values[cf_id].to_s != value.to_s
+            user.custom_field_values[cf_id] = value
+            updated = true
+          end
+        end
       end
-      if user.lastname != last_name && last_name.present?
-        user.lastname = last_name
-        updated = true
+
+      if updated && !user.save
+        Rails.logger.error "Failed to update user: #{user.errors.full_messages.join(', ')}"
+        return user
       end
-      if user.mail != email && email.present?
-        user.mail = email
-        updated = true
-      end
-      
-      user.save if updated
     end
 
     user
+  end
+
+  # Fallback random password generator mimicking Redmine 6's implementation.
+  # Users authenticated via OAuth won't need this password, but it must pass
+  # Redmine's validation rules.
+  def generate_random_password(length = 40)
+    chars_list = [('A'..'Z').to_a, ('a'..'z').to_a, ('0'..'9').to_a]
+
+    special_required = !defined?(Setting) ||
+      (Setting.respond_to?(:password_required_char_classes) &&
+       Setting.password_required_char_classes.include?('special_chars'))
+
+    if special_required
+      specials = if defined?(Setting) && Setting.const_defined?(:PASSWORD_CHAR_CLASSES)
+                   ("\x20".."\x7e").to_a.select do |c|
+                     c =~ Setting::PASSWORD_CHAR_CLASSES['special_chars']
+                   end
+                 else
+                   %w[! @ # $ % ^ & *]
+                 end
+      chars_list << specials
+    end
+
+    chars_list.each {|v| v.reject! {|c| %(0O1l|'"`*).include?(c)}}
+
+    password = +''
+    chars_list.each do |chars|
+      password << chars[SecureRandom.random_number(chars.size)]
+      length -= 1
+    end
+    chars = chars_list.flatten
+    length.times {password << chars[SecureRandom.random_number(chars.size)]}
+    password.chars.shuffle(random: SecureRandom).join
   end
 end

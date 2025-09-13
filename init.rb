@@ -2,7 +2,7 @@ Redmine::Plugin.register :bless_this_redmine_sso do
   name 'BlessThis Redmine SSO Plugin'
   author 'Blessthis.software'
   description 'OAuth/OpenID Connect SSO integration for Redmine with configurable providers'
-  version '1.0.0'
+    version '2.0.0'
   url 'https://blessthis.software'
   author_url 'https://blessthis.software'
 
@@ -17,11 +17,22 @@ Redmine::Plugin.register :bless_this_redmine_sso do
     'oauth_authorize_url' => '',
     'oauth_token_url' => '',
     'oauth_userinfo_url' => '',
-    'oauth_scope' => 'openid email profile',
-    'oauth_redirect_uri' => ''
+    'oauth_scope' => 'openid email profile User.Read',
+    'oauth_redirect_uri' => '',
+    'oauth_logout_url' => '',
+    'oauth_bypass_twofa' => true,
+    'oauth_mapping_preset' => 'generic',
+    'oauth_login_field' => 'name,preferred_username,sub,login,userPrincipalName',
+    'oauth_email_field' => 'email,mail,userPrincipalName',
+    'oauth_firstname_field' => 'given_name,firstName,first_name,givenName',
+    'oauth_lastname_field' => 'family_name,lastName,last_name,sn',
+    'oauth_auto_create' => true,
+    'oauth_update_existing' => true,
+    'oauth_match_by_email' => false,
+    'oauth_default_groups' => ''
   }, :partial => 'settings/bless_this_redmine_sso_settings'
 
-  menu :admin_menu, :bless_this_sso, { :controller => 'settings', :action => 'plugin', :id => "bless_this_redmine_sso" }, :caption => 'BlessThis SSO', :html => {:class => 'icon icon-user'}
+  menu :admin_menu, :bless_this_sso, { :controller => 'settings', :action => 'plugin', :id => "bless_this_redmine_sso" }, :caption => :menu_bless_this_sso, :html => {:class => 'icon icon-user'}
 end
 
 require_relative 'lib/bless_this_redmine_sso/hooks'
