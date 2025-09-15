@@ -77,6 +77,7 @@ pt:
     label_for_microsoft: "Para Microsoft Azure AD:"
     label_or_login_with: "Ou entrar com:"
     label_login_with_provider: "Entrar com %{provider}"
+    label_sso_logout: "Logout SSO"
     flash_oauth_not_configured: "OAuth SSO não está configurado corretamente"
     flash_invalid_state: "Parâmetro de estado OAuth inválido"
     flash_user_inactive: "A conta do usuário não está ativa"
