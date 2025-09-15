@@ -142,17 +142,26 @@ class OauthController < ApplicationController
 
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = (uri.scheme == 'https')
-    
+    http.open_timeout = 5
+    http.read_timeout = 5
+
     request = Net::HTTP::Post.new(uri)
     request.set_form_data(params)
     request['Accept'] = 'application/json'
+    begin
+      response = http.request(request)
 
-    response = http.request(request)
-    
-    if response.code == '200'
-      JSON.parse(response.body)
-    else
-      Rails.logger.error "Token exchange failed: #{response.body}"
+      if response.code == '200'
+        JSON.parse(response.body)
+      else
+        Rails.logger.error "Token exchange failed: #{response.body}"
+        nil
+      end
+    rescue Net::OpenTimeout, Net::ReadTimeout => e
+      Rails.logger.error "Token exchange timeout: #{e.message}"
+      nil
+    rescue StandardError => e
+      Rails.logger.error "Token exchange error: #{e.message}"
       nil
     end
   end
@@ -167,17 +176,26 @@ class OauthController < ApplicationController
     
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = (uri.scheme == 'https')
-    
+    http.open_timeout = 5
+    http.read_timeout = 5
+
     request = Net::HTTP::Get.new(uri)
     request['Authorization'] = "Bearer #{access_token}"
     request['Accept'] = 'application/json'
+    begin
+      response = http.request(request)
 
-    response = http.request(request)
-    
-    if response.code == '200'
-      JSON.parse(response.body)
-    else
-      Rails.logger.error "Get user info failed: #{response.body}"
+      if response.code == '200'
+        JSON.parse(response.body)
+      else
+        Rails.logger.error "Get user info failed: #{response.body}"
+        nil
+      end
+    rescue Net::OpenTimeout, Net::ReadTimeout => e
+      Rails.logger.error "Get user info timeout: #{e.message}"
+      nil
+    rescue StandardError => e
+      Rails.logger.error "Get user info error: #{e.message}"
       nil
     end
   end

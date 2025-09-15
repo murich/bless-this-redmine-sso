@@ -86,6 +86,36 @@ if defined?(OauthController) && defined?(Setting)
       end
     end
 
+    describe '#exchange_code_for_token timeouts' do
+      it 'returns nil and logs error on timeout' do
+        Setting.plugin_bless_this_redmine_sso = {
+          'oauth_client_id' => 'cid',
+          'oauth_client_secret' => 'secret',
+          'oauth_token_url' => 'https://example.com/token',
+          'oauth_redirect_uri' => 'http://test.host/oauth/callback'
+        }
+
+        http = instance_double(Net::HTTP)
+        allow(Net::HTTP).to receive(:new).and_return(http)
+        allow(http).to receive(:use_ssl=)
+        allow(http).to receive(:open_timeout=)
+        allow(http).to receive(:read_timeout=)
+
+        request = instance_double(Net::HTTP::Post, set_form_data: nil)
+        allow(Net::HTTP::Post).to receive(:new).and_return(request)
+        allow(request).to receive(:[]=)
+
+        allow(http).to receive(:request).and_raise(Net::OpenTimeout)
+
+        logger = double('logger', error: nil)
+        allow(Rails).to receive(:logger).and_return(logger)
+        expect(logger).to receive(:error).with(/Token exchange timeout/)
+
+        result = controller.send(:exchange_code_for_token, 'code')
+        expect(result).to be_nil
+      end
+    end
+
     describe '#find_or_create_user custom fields' do
       it 'maps oauth values to user custom fields' do
         unless defined?(User) && defined?(UserCustomField)

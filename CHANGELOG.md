@@ -17,3 +17,4 @@
 - SSO-only: login redirect can include `prompt=login` when needed.
 - Logout flow: optional redirect to provider logout URL; otherwise next authorize forces re-auth.
 - Added RSpec tests and GitHub Actions workflows for Redmine 5.1 and 6.0.
+- Add timeouts and error handling for HTTP requests
