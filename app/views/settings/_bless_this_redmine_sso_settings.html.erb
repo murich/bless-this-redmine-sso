@@ -27,17 +27,61 @@
     <em><%= l(:label_disable_username_password_login, scope: :bless_this_redmine_sso) %></em>
   </p>
 
-  <h4><%= l(:label_oauth_provider_configuration, scope: :bless_this_redmine_sso) %></h4>
+  <p>
+    <%= content_tag 'label', l(:label_bypass_twofa, scope: :bless_this_redmine_sso) %>
+    <%= check_box_tag('settings[oauth_bypass_twofa]', '1', @settings['oauth_bypass_twofa']) %>
+    <em><%= l(:hint_bypass_twofa, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
+  <h4><%= l(:label_quick_setup, scope: :bless_this_redmine_sso) %></h4>
+  <p class="info"><%= l(:hint_quick_setup_html, scope: :bless_this_redmine_sso).html_safe %></p>
+
+  <div class="oauth-discovery-wizard" style="background-color: #f8f9fa; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+    <p>
+      <%= content_tag 'label', l(:label_provider_template, scope: :bless_this_redmine_sso) %>
+      <%= select_tag 'oauth_discovery_provider', options_for_select([
+                                                                      [l(:label_select_template, scope: :bless_this_redmine_sso), ''],
+                                                                      [l(:label_google, scope: :bless_this_redmine_sso), 'google'],
+                                                                      [l(:label_microsoft, scope: :bless_this_redmine_sso), 'microsoft'],
+                                                                      [l(:label_casdoor, scope: :bless_this_redmine_sso), 'casdoor'],
+                                                                      [l(:label_custom_provider, scope: :bless_this_redmine_sso), 'custom']
+                                                                    ]), id: 'oauth_discovery_provider' %>
+    </p>
+
+    <p id="oauth_discovery_tenant_field" style="display:none">
+      <%= content_tag 'label', l(:label_microsoft_tenant, scope: :bless_this_redmine_sso) %>
+      <%= text_field_tag 'oauth_discovery_tenant', '', placeholder: l(:placeholder_microsoft_tenant, scope: :bless_this_redmine_sso), id: 'oauth_discovery_tenant', size: 70 %>
+    </p>
+
+    <p id="oauth_discovery_base_url_field" style="display:none">
+      <%= content_tag 'label', l(:label_casdoor_base_url, scope: :bless_this_redmine_sso) %>
+      <%= text_field_tag 'oauth_discovery_base_url', '', placeholder: l(:placeholder_casdoor_base_url, scope: :bless_this_redmine_sso), id: 'oauth_discovery_base_url', size: 70 %>
+    </p>
+
+    <p>
+      <%= content_tag 'label', l(:label_discovery_url, scope: :bless_this_redmine_sso) %>
+      <%= text_field_tag 'oauth_discovery_url', '', placeholder: l(:placeholder_discovery_url, scope: :bless_this_redmine_sso), id: 'oauth_discovery_url', size: 70 %>
+      <em><%= l(:hint_discovery_url, scope: :bless_this_redmine_sso) %></em>
+    </p>
+
+    <p>
+      <button type="button" class="button" id="oauth_discovery_button"><%= l(:button_load_from_discovery, scope: :bless_this_redmine_sso) %></button>
+    </p>
+
+    <div id="oauth_discovery_result" class="flash" style="display:none"></div>
+  </div>
+
+  <h4><%= l(:label_client_credentials, scope: :bless_this_redmine_sso) %></h4>
 
   <p>
     <%= content_tag 'label', l(:label_provider_name, scope: :bless_this_redmine_sso) + ':' %>
-    <%= text_field_tag 'settings[oauth_provider_name]', @settings['oauth_provider_name'], placeholder: l(:placeholder_provider_name, scope: :bless_this_redmine_sso) %>
+    <%= text_field_tag 'settings[oauth_provider_name]', @settings['oauth_provider_name'], placeholder: l(:placeholder_provider_name, scope: :bless_this_redmine_sso), size: 70 %>
     <em><%= l(:hint_provider_name, scope: :bless_this_redmine_sso) %></em>
   </p>
 
   <p>
     <%= content_tag 'label', l(:label_client_id, scope: :bless_this_redmine_sso) + ':' %>
-    <%= text_field_tag 'settings[oauth_client_id]', @settings['oauth_client_id'], placeholder: l(:placeholder_client_id, scope: :bless_this_redmine_sso) %>
+    <%= text_field_tag 'settings[oauth_client_id]', @settings['oauth_client_id'], placeholder: l(:placeholder_client_id, scope: :bless_this_redmine_sso), size: 70 %>
   </p>
 
   <p>
@@ -45,45 +89,49 @@
     <%= password_field_tag 'settings[oauth_client_secret]', @settings['oauth_client_secret'], placeholder: l(:placeholder_client_secret, scope: :bless_this_redmine_sso) %>
   </p>
 
+  <h4><%= l(:label_oauth_endpoints, scope: :bless_this_redmine_sso) %></h4>
+
   <p>
     <%= content_tag 'label', l(:label_authorize_url, scope: :bless_this_redmine_sso) + ':' %>
-    <%= text_field_tag 'settings[oauth_authorize_url]', @settings['oauth_authorize_url'], placeholder: l(:placeholder_authorize_url, scope: :bless_this_redmine_sso) %>
+    <%= text_field_tag 'settings[oauth_authorize_url]', @settings['oauth_authorize_url'], placeholder: l(:placeholder_authorize_url, scope: :bless_this_redmine_sso), size: 70 %>
     <em><%= l(:hint_authorize_url, scope: :bless_this_redmine_sso) %></em>
   </p>
 
   <p>
     <%= content_tag 'label', l(:label_token_url, scope: :bless_this_redmine_sso) + ':' %>
-    <%= text_field_tag 'settings[oauth_token_url]', @settings['oauth_token_url'], placeholder: l(:placeholder_token_url, scope: :bless_this_redmine_sso) %>
+    <%= text_field_tag 'settings[oauth_token_url]', @settings['oauth_token_url'], placeholder: l(:placeholder_token_url, scope: :bless_this_redmine_sso), size: 70 %>
     <em><%= l(:hint_token_url, scope: :bless_this_redmine_sso) %></em>
   </p>
 
   <p>
     <%= content_tag 'label', l(:label_userinfo_url, scope: :bless_this_redmine_sso) + ':' %>
-    <%= text_field_tag 'settings[oauth_userinfo_url]', @settings['oauth_userinfo_url'], placeholder: l(:placeholder_userinfo_url, scope: :bless_this_redmine_sso) %>
+    <%= text_field_tag 'settings[oauth_userinfo_url]', @settings['oauth_userinfo_url'], placeholder: l(:placeholder_userinfo_url, scope: :bless_this_redmine_sso), size: 70 %>
     <em><%= l(:hint_userinfo_url, scope: :bless_this_redmine_sso) %></em>
   </p>
 
   <p>
     <%= content_tag 'label', l(:label_scope, scope: :bless_this_redmine_sso) + ':' %>
-    <%= text_field_tag 'settings[oauth_scope]', @settings['oauth_scope'], placeholder: l(:placeholder_scope, scope: :bless_this_redmine_sso) %>
+    <%= text_field_tag 'settings[oauth_scope]', @settings['oauth_scope'], placeholder: l(:placeholder_scope, scope: :bless_this_redmine_sso), size: 70 %>
     <em><%= l(:hint_scope, scope: :bless_this_redmine_sso) %></em>
   </p>
 
+  <h4><%= l(:label_token_validation, scope: :bless_this_redmine_sso) %></h4>
+
   <p>
     <%= content_tag 'label', l(:label_expected_issuer, scope: :bless_this_redmine_sso) + ':' %>
-    <%= text_field_tag 'settings[oauth_expected_issuer]', @settings['oauth_expected_issuer'], placeholder: l(:placeholder_expected_issuer, scope: :bless_this_redmine_sso) %>
+    <%= text_field_tag 'settings[oauth_expected_issuer]', @settings['oauth_expected_issuer'], placeholder: l(:placeholder_expected_issuer, scope: :bless_this_redmine_sso), size: 70 %>
     <em><%= l(:hint_expected_issuer, scope: :bless_this_redmine_sso) %></em>
   </p>
 
   <p>
     <%= content_tag 'label', l(:label_expected_client_id, scope: :bless_this_redmine_sso) + ':' %>
-    <%= text_field_tag 'settings[oauth_expected_client_id]', @settings['oauth_expected_client_id'], placeholder: l(:placeholder_expected_client_id, scope: :bless_this_redmine_sso) %>
+    <%= text_field_tag 'settings[oauth_expected_client_id]', @settings['oauth_expected_client_id'], placeholder: l(:placeholder_expected_client_id, scope: :bless_this_redmine_sso), size: 70 %>
     <em><%= l(:hint_expected_client_id, scope: :bless_this_redmine_sso) %></em>
   </p>
 
   <p>
     <%= content_tag 'label', l(:label_jwks_url, scope: :bless_this_redmine_sso) + ':' %>
-    <%= text_field_tag 'settings[oauth_jwks_url]', @settings['oauth_jwks_url'], placeholder: l(:placeholder_jwks_url, scope: :bless_this_redmine_sso) %>
+    <%= text_field_tag 'settings[oauth_jwks_url]', @settings['oauth_jwks_url'], placeholder: l(:placeholder_jwks_url, scope: :bless_this_redmine_sso), size: 70 %>
     <em><%= l(:hint_jwks_url, scope: :bless_this_redmine_sso) %></em>
   </p>
 
@@ -95,61 +143,50 @@
 
   <p>
     <%= content_tag 'label', l(:label_redirect_uri, scope: :bless_this_redmine_sso) + ':' %>
-    <%= text_field_tag 'settings[oauth_redirect_uri]', @settings['oauth_redirect_uri'], placeholder: l(:placeholder_redirect_uri, scope: :bless_this_redmine_sso) %>
+    <%= text_field_tag 'settings[oauth_redirect_uri]', @settings['oauth_redirect_uri'], placeholder: l(:placeholder_redirect_uri, scope: :bless_this_redmine_sso), size: 70 %>
     <em><%= l(:hint_redirect_uri, scope: :bless_this_redmine_sso, url: "#{request.base_url}/oauth/callback") %></em>
   </p>
 
   <p>
     <%= content_tag 'label', l(:label_logout_url, scope: :bless_this_redmine_sso) + ':' %>
-    <%= text_field_tag 'settings[oauth_logout_url]', @settings['oauth_logout_url'], placeholder: l(:placeholder_logout_url, scope: :bless_this_redmine_sso) %>
+    <%= text_field_tag 'settings[oauth_logout_url]', @settings['oauth_logout_url'], placeholder: l(:placeholder_logout_url, scope: :bless_this_redmine_sso), size: 70 %>
     <em><%= l(:hint_logout_url, scope: :bless_this_redmine_sso) %></em>
   </p>
 
   <h4><%= l(:label_user_mapping, scope: :bless_this_redmine_sso) %></h4>
 
   <p>
-    <%= content_tag 'label', l(:label_match_by_email, scope: :bless_this_redmine_sso) %>
-    <%= check_box_tag('settings[oauth_match_by_email]', '1', @settings['oauth_match_by_email']) %>
-    <em><%= l(:hint_match_by_email, scope: :bless_this_redmine_sso) %></em>
-  </p>
-
-  <p>
-    <%= content_tag 'label', l(:label_bypass_twofa, scope: :bless_this_redmine_sso) %>
-    <%= check_box_tag('settings[oauth_bypass_twofa]', '1', @settings['oauth_bypass_twofa']) %>
-    <em><%= l(:hint_bypass_twofa, scope: :bless_this_redmine_sso) %></em>
-  </p>
-
-  <p>
     <%= content_tag 'label', l(:label_mapping_preset, scope: :bless_this_redmine_sso) + ':' %>
     <%= select_tag 'settings[oauth_mapping_preset]', options_for_select([
-      [l(:label_generic_openid, scope: :bless_this_redmine_sso), 'generic'],
-      [l(:label_microsoft, scope: :bless_this_redmine_sso), 'microsoft'],
-      [l(:label_google, scope: :bless_this_redmine_sso), 'google']
-    ], @settings['oauth_mapping_preset']), id: 'oauth_mapping_preset' %>
+                                                                          [l(:label_generic_openid, scope: :bless_this_redmine_sso), 'generic'],
+                                                                          [l(:label_microsoft, scope: :bless_this_redmine_sso), 'microsoft'],
+                                                                          [l(:label_google, scope: :bless_this_redmine_sso), 'google'],
+                                                                          [l(:label_casdoor, scope: :bless_this_redmine_sso), 'casdoor']
+                                                                        ], @settings['oauth_mapping_preset']), id: 'oauth_mapping_preset' %>
     <em><%= l(:hint_mapping_preset, scope: :bless_this_redmine_sso) %></em>
   </p>
 
   <p>
     <%= content_tag 'label', l(:label_login_field, scope: :bless_this_redmine_sso) + ':' %>
-    <%= text_field_tag 'settings[oauth_login_field]', @settings['oauth_login_field'], placeholder: l(:placeholder_login_field, scope: :bless_this_redmine_sso) %>
+    <%= text_field_tag 'settings[oauth_login_field]', @settings['oauth_login_field'], placeholder: l(:placeholder_login_field, scope: :bless_this_redmine_sso), size: 70 %>
     <em><%= l(:hint_login_field, scope: :bless_this_redmine_sso) %></em>
   </p>
 
   <p>
     <%= content_tag 'label', l(:label_email_field, scope: :bless_this_redmine_sso) + ':' %>
-    <%= text_field_tag 'settings[oauth_email_field]', @settings['oauth_email_field'], placeholder: l(:placeholder_email_field, scope: :bless_this_redmine_sso) %>
+    <%= text_field_tag 'settings[oauth_email_field]', @settings['oauth_email_field'], placeholder: l(:placeholder_email_field, scope: :bless_this_redmine_sso), size: 70 %>
     <em><%= l(:hint_email_field, scope: :bless_this_redmine_sso) %></em>
   </p>
 
   <p>
     <%= content_tag 'label', l(:label_firstname_field, scope: :bless_this_redmine_sso) + ':' %>
-    <%= text_field_tag 'settings[oauth_firstname_field]', @settings['oauth_firstname_field'], placeholder: l(:placeholder_firstname_field, scope: :bless_this_redmine_sso) %>
+    <%= text_field_tag 'settings[oauth_firstname_field]', @settings['oauth_firstname_field'], placeholder: l(:placeholder_firstname_field, scope: :bless_this_redmine_sso), size: 70 %>
     <em><%= l(:hint_firstname_field, scope: :bless_this_redmine_sso) %></em>
   </p>
 
   <p>
     <%= content_tag 'label', l(:label_lastname_field, scope: :bless_this_redmine_sso) + ':' %>
-    <%= text_field_tag 'settings[oauth_lastname_field]', @settings['oauth_lastname_field'], placeholder: l(:placeholder_lastname_field, scope: :bless_this_redmine_sso) %>
+    <%= text_field_tag 'settings[oauth_lastname_field]', @settings['oauth_lastname_field'], placeholder: l(:placeholder_lastname_field, scope: :bless_this_redmine_sso), size: 70 %>
     <em><%= l(:hint_lastname_field, scope: :bless_this_redmine_sso) %></em>
   </p>
 
@@ -157,7 +194,7 @@
     <% UserCustomField.order(:name).each do |cf| %>
       <p>
         <%= content_tag 'label', l(:label_custom_field, scope: :bless_this_redmine_sso, name: cf.name) %>
-        <%= text_field_tag "settings[oauth_custom_field_#{cf.id}]", @settings["oauth_custom_field_#{cf.id}"], placeholder: l(:placeholder_custom_field, scope: :bless_this_redmine_sso) %>
+        <%= text_field_tag "settings[oauth_custom_field_#{cf.id}]", @settings["oauth_custom_field_#{cf.id}"], placeholder: l(:placeholder_custom_field, scope: :bless_this_redmine_sso), size: 70 %>
         <em><%= l(:hint_custom_field, scope: :bless_this_redmine_sso) %></em>
       </p>
     <% end %>
@@ -182,8 +219,14 @@
   </p>
 
   <p>
+    <%= content_tag 'label', l(:label_match_by_email, scope: :bless_this_redmine_sso) %>
+    <%= check_box_tag('settings[oauth_match_by_email]', '1', @settings['oauth_match_by_email']) %>
+    <em><%= l(:hint_match_by_email, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
+  <p>
     <%= content_tag 'label', l(:label_default_groups, scope: :bless_this_redmine_sso) + ':' %>
-    <%= text_field_tag 'settings[oauth_default_groups]', @settings['oauth_default_groups'], placeholder: l(:placeholder_default_groups, scope: :bless_this_redmine_sso) %>
+    <%= text_field_tag 'settings[oauth_default_groups]', @settings['oauth_default_groups'], placeholder: l(:placeholder_default_groups, scope: :bless_this_redmine_sso), size: 70 %>
     <em><%= l(:hint_default_groups, scope: :bless_this_redmine_sso) %></em>
   </p>
 
@@ -193,12 +236,11 @@
     <h5><%= l(:label_for_casdoor, scope: :bless_this_redmine_sso) %></h5>
     <ul>
       <li><strong><%= l(:label_authorize_url, scope: :bless_this_redmine_sso) %>:</strong> http://localhost:8082/login/oauth/authorize</li>
-      <li><strong><%= l(:label_token_url, scope: :bless_this_redmine_sso) %>:</strong> http://casdoor_app:8000/api/login/oauth/access_token</li>
-      <li><strong><%= l(:label_expected_issuer, scope: :bless_this_redmine_sso) %>:</strong> http://casdoor_app:8000</li>
-      <li><strong><%= l(:label_jwks_url, scope: :bless_this_redmine_sso) %>:</strong> http://casdoor_app:8000/.well-known/jwks.json</li>
-      <li><strong><%= l(:label_userinfo_url, scope: :bless_this_redmine_sso) %>:</strong> http://casdoor_app:8000/api/get-account</li>
-      <li><strong><%= l(:label_logout_url, scope: :bless_this_redmine_sso) %>:</strong> http://casdoor_app:8000/logout</li>
-      <li><strong><%= l(:label_expected_client_id, scope: :bless_this_redmine_sso) %>:</strong> redmine-client-id</li>
+      <li><strong><%= l(:label_token_url, scope: :bless_this_redmine_sso) %>:</strong> http://localhost:8082/api/login/oauth/access_token</li>
+      <li><strong><%= l(:label_userinfo_url, scope: :bless_this_redmine_sso) %>:</strong> http://localhost:8082/api/get-account</li>
+      <li><strong><%= l(:label_expected_issuer, scope: :bless_this_redmine_sso) %>:</strong> http://localhost:8082</li>
+      <li><strong><%= l(:label_jwks_url, scope: :bless_this_redmine_sso) %>:</strong> http://localhost:8082/.well-known/jwks</li>
+      <li><strong><%= l(:label_logout_url, scope: :bless_this_redmine_sso) %>:</strong> http://localhost:8082/logout</li>
       <li><strong><%= l(:label_scope, scope: :bless_this_redmine_sso) %>:</strong> openid email profile</li>
     </ul>
 
@@ -206,84 +248,228 @@
     <ul>
       <li><strong><%= l(:label_authorize_url, scope: :bless_this_redmine_sso) %>:</strong> https://accounts.google.com/o/oauth2/v2/auth</li>
       <li><strong><%= l(:label_token_url, scope: :bless_this_redmine_sso) %>:</strong> https://oauth2.googleapis.com/token</li>
+      <li><strong><%= l(:label_userinfo_url, scope: :bless_this_redmine_sso) %>:</strong> https://www.googleapis.com/oauth2/v2/userinfo</li>
       <li><strong><%= l(:label_expected_issuer, scope: :bless_this_redmine_sso) %>:</strong> https://accounts.google.com</li>
       <li><strong><%= l(:label_jwks_url, scope: :bless_this_redmine_sso) %>:</strong> https://www.googleapis.com/oauth2/v3/certs</li>
-      <li><strong><%= l(:label_userinfo_url, scope: :bless_this_redmine_sso) %>:</strong> https://www.googleapis.com/oauth2/v2/userinfo</li>
-      <li><strong><%= l(:label_logout_url, scope: :bless_this_redmine_sso) %>:</strong> https://accounts.google.com/logout</li>
-      <li><strong><%= l(:label_expected_client_id, scope: :bless_this_redmine_sso) %>:</strong> your-google-client-id</li>
       <li><strong><%= l(:label_scope, scope: :bless_this_redmine_sso) %>:</strong> openid email profile</li>
     </ul>
 
     <h5><%= l(:label_for_microsoft, scope: :bless_this_redmine_sso) %></h5>
     <ul>
-      <li><strong><%= l(:label_authorize_url, scope: :bless_this_redmine_sso) %>:</strong> https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize</li>
-      <li><strong><%= l(:label_token_url, scope: :bless_this_redmine_sso) %>:</strong> https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token</li>
+      <li><strong><%= l(:label_authorize_url, scope: :bless_this_redmine_sso) %>:</strong> https://login.microsoftonline.com/common/oauth2/v2.0/authorize</li>
+      <li><strong><%= l(:label_token_url, scope: :bless_this_redmine_sso) %>:</strong> https://login.microsoftonline.com/common/oauth2/v2.0/token</li>
+      <li><strong><%= l(:label_userinfo_url, scope: :bless_this_redmine_sso) %>:</strong> https://graph.microsoft.com/v1.0/me | https://graph.microsoft.com/oidc/userinfo</li>
       <li><strong><%= l(:label_expected_issuer, scope: :bless_this_redmine_sso) %>:</strong> https://login.microsoftonline.com/{tenant}/v2.0</li>
-      <li><strong><%= l(:label_jwks_url, scope: :bless_this_redmine_sso) %>:</strong> https://login.microsoftonline.com/{tenant}/discovery/v2.0/keys</li>
-      <li><strong><%= l(:label_userinfo_url, scope: :bless_this_redmine_sso) %>:</strong> https://graph.microsoft.com/v1.0/me</li>
-      <li><strong><%= l(:label_logout_url, scope: :bless_this_redmine_sso) %>:</strong> https://login.microsoftonline.com/{tenant}/oauth2/v2.0/logout</li>
-      <li><strong><%= l(:label_expected_client_id, scope: :bless_this_redmine_sso) %>:</strong> your-azure-client-id</li>
-      <li><strong><%= l(:label_scope, scope: :bless_this_redmine_sso) %>:</strong> openid email profile User.Read</li>
+      <li><strong><%= l(:label_jwks_url, scope: :bless_this_redmine_sso) %>:</strong> https://login.microsoftonline.com/common/discovery/v2.0/keys</li>
+      <li><strong><%= l(:label_scope, scope: :bless_this_redmine_sso) %>:</strong> openid email profile offline_access User.Read</li>
     </ul>
   </div>
 </div>
 
 <script type="text/javascript">
-document.addEventListener('DOMContentLoaded', function() {
-  var ssoOnlyCheckbox = document.getElementById('oauth_sso_only_checkbox');
-  var warningDiv = document.getElementById('oauth_sso_only_warning');
-  var presetSelect = document.getElementById('oauth_mapping_preset');
-  var loginField = document.getElementById('settings_oauth_login_field');
-  var emailField = document.getElementById('settings_oauth_email_field');
-  var firstnameField = document.getElementById('settings_oauth_firstname_field');
-  var lastnameField = document.getElementById('settings_oauth_lastname_field');
+    document.addEventListener('DOMContentLoaded', function() {
+        var ssoOnlyCheckbox = document.getElementById('oauth_sso_only_checkbox');
+        var warningDiv = document.getElementById('oauth_sso_only_warning');
+        var presetSelect = document.getElementById('oauth_mapping_preset');
+        var loginField = document.getElementById('settings_oauth_login_field');
+        var emailField = document.getElementById('settings_oauth_email_field');
+        var firstnameField = document.getElementById('settings_oauth_firstname_field');
+        var lastnameField = document.getElementById('settings_oauth_lastname_field');
 
-  function toggleWarning() {
-    if (ssoOnlyCheckbox.checked) {
-      warningDiv.style.display = 'block';
-    } else {
-      warningDiv.style.display = 'none';
-    }
-  }
+        function toggleWarning() {
+            if (ssoOnlyCheckbox.checked) {
+                warningDiv.style.display = 'block';
+            } else {
+                warningDiv.style.display = 'none';
+            }
+        }
 
-  // Show warning if SSO-only is already enabled
-  toggleWarning();
+        toggleWarning();
+        ssoOnlyCheckbox.addEventListener('change', toggleWarning);
 
-  // Toggle warning when checkbox changes
-  ssoOnlyCheckbox.addEventListener('change', toggleWarning);
+        var presets = {
+            generic: {
+                login: 'name,preferred_username,sub,login,userPrincipalName',
+                email: 'email,mail,userPrincipalName',
+                firstname: 'given_name,firstName,first_name,givenName',
+                lastname: 'family_name,lastName,last_name,sn'
+            },
+            microsoft: {
+                login: 'userPrincipalName',
+                email: 'mail,userPrincipalName',
+                firstname: 'givenName',
+                lastname: 'sn,surname'
+            },
+            google: {
+                login: 'email',
+                email: 'email',
+                firstname: 'given_name',
+                lastname: 'family_name'
+            },
+            casdoor: {
+                login: 'name,preferred_username,sub',
+                email: 'email',
+                firstname: 'given_name,firstName',
+                lastname: 'family_name,lastName'
+            }
+        };
 
-  var presets = {
-    generic: {
-      login: 'name,preferred_username,sub,login,userPrincipalName',
-      email: 'email,mail,userPrincipalName',
-      firstname: 'given_name,firstName,first_name,givenName',
-      lastname: 'family_name,lastName,last_name,sn'
-    },
-    microsoft: {
-      login: 'userPrincipalName',
-      email: 'mail,userPrincipalName',
-      firstname: 'givenName',
-      lastname: 'sn,surname'
-    },
-    google: {
-      login: 'email',
-      email: 'email',
-      firstname: 'given_name',
-      lastname: 'family_name'
-    }
-  };
+        function applyPreset() {
+            var p = presets[presetSelect.value];
+            if (p) {
+                loginField.value = p.login;
+                emailField.value = p.email;
+                firstnameField.value = p.firstname;
+                lastnameField.value = p.lastname;
+            }
+        }
 
-  function applyPreset() {
-    var p = presets[presetSelect.value];
-    if (p) {
-      loginField.value = p.login;
-      emailField.value = p.email;
-      firstnameField.value = p.firstname;
-      lastnameField.value = p.lastname;
-    }
-  }
+        presetSelect && presetSelect.addEventListener('change', applyPreset);
 
-  presetSelect && presetSelect.addEventListener('change', applyPreset);
-});
+        var discoveryProvider = document.getElementById('oauth_discovery_provider');
+        var discoveryTenantField = document.getElementById('oauth_discovery_tenant_field');
+        var discoveryTenantInput = document.getElementById('oauth_discovery_tenant');
+        var discoveryBaseField = document.getElementById('oauth_discovery_base_url_field');
+        var discoveryBaseInput = document.getElementById('oauth_discovery_base_url');
+        var discoveryUrlInput = document.getElementById('oauth_discovery_url');
+        var discoveryButton = document.getElementById('oauth_discovery_button');
+        var discoveryResult = document.getElementById('oauth_discovery_result');
+
+        var discoveryMessages = {
+            success: '<%= j l(:notice_discovery_success, scope: :bless_this_redmine_sso) %>',
+            failure: '<%= j l(:notice_discovery_failure, scope: :bless_this_redmine_sso) %>'
+        };
+
+        function escapeHtml(str) {
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        function updateDiscoveryFields() {
+            var provider = discoveryProvider.value;
+            discoveryTenantField.style.display = provider === 'microsoft' ? 'block' : 'none';
+            discoveryBaseField.style.display = provider === 'casdoor' ? 'block' : 'none';
+            updateDiscoveryUrl();
+        }
+
+        function updateDiscoveryUrl() {
+            if (!discoveryUrlInput) { return; }
+
+            var provider = discoveryProvider.value;
+            var computed = '';
+
+            if (provider === 'google') {
+                computed = 'https://accounts.google.com/.well-known/openid-configuration';
+            } else if (provider === 'microsoft') {
+                var tenant = discoveryTenantInput ? discoveryTenantInput.value.trim() : '';
+                if (!tenant) { tenant = 'common'; }
+                computed = 'https://login.microsoftonline.com/' + encodeURIComponent(tenant) + '/v2.0/.well-known/openid-configuration';
+            } else if (provider === 'casdoor') {
+                var base = discoveryBaseInput ? discoveryBaseInput.value.trim() : '';
+                if (base) {
+                    if (!/^https?:/i.test(base)) {
+                        base = 'https://' + base;
+                    }
+                    base = base.replace(/\/+$/, '');
+                    computed = base + '/.well-known/openid-configuration';
+                }
+            }
+
+            var lastAuto = discoveryUrlInput.dataset.autoValue || '';
+            if (computed) {
+                if (!discoveryUrlInput.value || discoveryUrlInput.value === lastAuto) {
+                    discoveryUrlInput.value = computed;
+                    discoveryUrlInput.dataset.autoValue = computed;
+                }
+            } else {
+                if (!discoveryUrlInput.value || discoveryUrlInput.value === lastAuto) {
+                    discoveryUrlInput.value = '';
+                }
+                discoveryUrlInput.dataset.autoValue = '';
+            }
+        }
+
+        function showDiscoveryMessage(success, message, warnings) {
+            discoveryResult.style.display = 'block';
+            discoveryResult.className = 'flash ' + (success ? 'notice' : 'error');
+            var html = '<p>' + escapeHtml(message) + '</p>';
+            if (warnings && warnings.length) {
+                html += '<ul>' + warnings.map(function(w) { return '<li>' + escapeHtml(w) + '</li>'; }).join('') + '</ul>';
+            }
+            discoveryResult.innerHTML = html;
+        }
+
+        updateDiscoveryFields();
+        discoveryProvider.addEventListener('change', updateDiscoveryFields);
+        if (discoveryTenantInput) {
+            discoveryTenantInput.addEventListener('input', updateDiscoveryUrl);
+        }
+        if (discoveryBaseInput) {
+            discoveryBaseInput.addEventListener('input', updateDiscoveryUrl);
+        }
+        if (discoveryUrlInput) {
+            discoveryUrlInput.addEventListener('input', function() {
+                if (discoveryUrlInput.dataset) {
+                    discoveryUrlInput.dataset.autoValue = '';
+                }
+            });
+        }
+
+        if (discoveryButton) {
+            discoveryButton.addEventListener('click', function() {
+                var provider = discoveryProvider.value;
+                var payload = {
+                    provider: provider === 'custom' ? '' : provider,
+                    discovery_url: discoveryUrlInput.value.trim(),
+                    tenant: discoveryTenantInput ? discoveryTenantInput.value.trim() : '',
+                    casdoor_base_url: discoveryBaseInput ? discoveryBaseInput.value.trim() : '',
+                    base_url: discoveryBaseInput ? discoveryBaseInput.value.trim() : ''
+                };
+
+                discoveryResult.style.display = 'none';
+
+                fetch('<%= url_for(controller: 'oauth', action: 'discover') %>', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify(payload)
+                }).then(function(response) {
+                    if (!response.ok) {
+                        return response.json().then(function(data) {
+                            throw new Error(data.error || response.statusText);
+                        });
+                    }
+                    return response.json();
+                }).then(function(data) {
+                    if (!data || !data.settings) {
+                        throw new Error('Invalid discovery response');
+                    }
+
+                    Object.keys(data.settings).forEach(function(key) {
+                        var element = document.getElementById('settings_' + key);
+                        if (!element) { return; }
+
+                        if (element.tagName === 'SELECT') {
+                            element.value = data.settings[key];
+                            element.dispatchEvent(new Event('change'));
+                        } else {
+                            element.value = data.settings[key];
+                        }
+                    });
+
+                    if (data.discovery_url && discoveryUrlInput) {
+                        discoveryUrlInput.value = data.discovery_url;
+                        discoveryUrlInput.dataset.autoValue = data.discovery_url;
+                    }
+
+                    showDiscoveryMessage(true, discoveryMessages.success, data.warnings);
+                }).catch(function(error) {
+                    showDiscoveryMessage(false, discoveryMessages.failure + ' ' + error.message, []);
+                });
+            });
+        }
+    });
 </script>
-

@@ -10,6 +10,7 @@ class OauthController < ApplicationController
   class IdTokenValidationError < StandardError; end
   # Allow OAuth endpoints to be accessed without prior Redmine login
   skip_before_action :check_if_login_required, only: %i[authorize callback], raise: false
+  before_action :require_admin, only: :discover if respond_to?(:before_action)
   
   def authorize
     # Redirect to OAuth authorization endpoint
@@ -53,6 +54,25 @@ class OauthController < ApplicationController
     auth_url = "#{authorize_url}?#{URI.encode_www_form(params)}"
 
     redirect_to auth_url
+  end
+
+  def discover
+    result = BlessThisRedmineSso::Discovery.discover(
+      provider: params[:provider],
+      discovery_url: params[:discovery_url],
+      tenant: params[:tenant] || params[:microsoft_tenant],
+      base_url: params[:base_url],
+      casdoor_base_url: params[:casdoor_base_url]
+    )
+
+    render json: {
+      success: true,
+      settings: result[:settings],
+      warnings: result[:warnings],
+      discovery_url: result[:discovery_url]
+    }
+  rescue BlessThisRedmineSso::Discovery::Error => e
+    render json: { success: false, error: e.message }, status: :unprocessable_entity
   end
   
   def callback

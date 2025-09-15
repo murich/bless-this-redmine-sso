@@ -37,15 +37,20 @@ A comprehensive OAuth/OpenID Connect SSO plugin for Redmine that supports any OA
 ### Web Interface
 1. Go to **Administration → Plugins → OAuth SSO Plugin → Configure**
 
-2. Enable OAuth SSO and configure your provider settings:
+2. *(Optional)* Use the **Quick Setup** wizard to fetch OpenID Connect metadata automatically:
+   - Pick a provider template (Google, Microsoft Entra ID, Casdoor, or Custom).
+   - Enter any provider-specific inputs that appear (e.g., Microsoft tenant ID or Casdoor base URL).
+   - Adjust the discovery URL if needed and click **Load from discovery**. Successful requests fill in the endpoints, scope, and mapping preset; warnings highlight fields you may still need to complete manually.
+
+3. Review or adjust the provider settings below the wizard:
    - **Provider Name**: Display name for your OAuth provider
    - **Client (application) ID**: OAuth application client identifier (called "Application (client) ID" in Microsoft Azure AD)
    - **Client Secret**: OAuth application client secret
    - **Authorization URL**: OAuth authorization endpoint
-   - **Token URL**: OAuth token exchange endpoint  
+   - **Token URL**: OAuth token exchange endpoint
    - **User Info URL**: Endpoint to retrieve user information
    - **Scope**: OAuth scopes (e.g., "openid email profile")
-  - **Expected issuer**: OpenID Connect issuer URL that must match the `id_token` (leave blank to skip issuer verification)
+   - **Expected issuer**: OpenID Connect issuer URL that must match the `id_token` (leave blank to skip issuer verification)
    - **Expected client ID**: Optional audience override for the `id_token` (defaults to the OAuth client ID)
    - **JWKS URL**: Public JSON Web Key Set endpoint required to validate RS256-signed ID tokens
    - **Redirect URI**: Leave empty to auto-generate
@@ -58,79 +63,101 @@ A comprehensive OAuth/OpenID Connect SSO plugin for Redmine that supports any OA
     - **Default Group IDs**: Comma-separated list of group IDs added to new users
     - **Logout URL**: Optional provider logout endpoint to redirect users after Redmine logout
 
-3. **Optional**: Enable "SSO-Only Mode" to disable username/password login
+4. **Optional**: Enable "SSO-Only Mode" to disable username/password login
 
 ### Command Line Interface
-You can also configure the plugin using rake commands:
+Run all tasks with `bundle exec rake` from your Redmine directory. The `redmine:bless_this_sso:configure` task accepts environment variables so you can script repeatable setups.
+
+#### Automatic configuration with discovery
+
+`redmine:bless_this_sso:configure` can preload OAuth endpoints in the same way as the admin wizard. Provide a provider template and any required hints, then run the task:
 
 ```bash
-# Configure OAuth SSO
-rake redmine:bless_this_sso:configure OAUTH_CLIENT_ID=your-client-id OAUTH_CLIENT_SECRET=your-secret \
-  OAUTH_EXPECTED_ISSUER=https://your-provider.example \
-  OAUTH_EXPECTED_CLIENT_ID=your-audience-value \
-  OAUTH_LOGOUT_URL=https://your-provider.example/logout
+# Google Workspace (loads public Google metadata)
+bundle exec rake redmine:bless_this_sso:configure \
+  OAUTH_PROVIDER=google \
+  OAUTH_CLIENT_ID=your-client-id \
+  OAUTH_CLIENT_SECRET=your-client-secret
 
-# Enable OAuth SSO
-rake redmine:bless_this_sso:enable
+# Microsoft Entra ID / Azure AD (replace the tenant ID with yours)
+bundle exec rake redmine:bless_this_sso:configure \
+  OAUTH_PROVIDER=microsoft \
+  OAUTH_MICROSOFT_TENANT=580db9c2-c9b5-4666-9ca4-3f389ee311fc \
+  OAUTH_CLIENT_ID=your-client-id \
+  OAUTH_CLIENT_SECRET=your-client-secret
 
-# Disable OAuth SSO
-rake redmine:bless_this_sso:disable
+# Casdoor (base URL can be a hostname or full https:// origin)
+bundle exec rake redmine:bless_this_sso:configure \
+  OAUTH_PROVIDER=casdoor \
+  OAUTH_CASDOOR_BASE_URL=https://door.casdoor.com \
+  OAUTH_CLIENT_ID=your-client-id \
+  OAUTH_CLIENT_SECRET=your-client-secret
 
-# Enable OAuth SSO
-rake redmine:bless_this_sso:enable
-
-# Disable OAuth SSO
-rake redmine:bless_this_sso:disable
-
-# Enable SSO-only mode
-rake redmine:bless_this_sso:enable_sso_only
-
-# Disable SSO-only mode
-rake redmine:bless_this_sso:disable_sso_only
-
-# Enable matching users by email
-rake redmine:bless_this_sso:enable_match_by_email
-
-# Disable matching users by email
-rake redmine:bless_this_sso:disable_match_by_email
-
-# Enable bypass of Redmine MFA
-rake redmine:bless_this_sso:enable_bypass_twofa
-
-# Disable bypass of Redmine MFA
-rake redmine:bless_this_sso:disable_bypass_twofa
-
-# Check configuration status
-rake redmine:bless_this_sso:status
-
-# Test configuration
-rake redmine:bless_this_sso:test
-
-# Validate full OAuth flow and inspect user info mapping
-rake redmine:bless_this_sso:validate_flow
-# copy the ?code= value from the redirect, then run:
-OAUTH_CODE=YOUR_CODE rake redmine:bless_this_sso:validate_flow
-
-# Show all available commands
-rake redmine:bless_this_sso:help
+# Custom OpenID provider
+bundle exec rake redmine:bless_this_sso:configure \
+  OAUTH_DISCOVERY_URL=https://id.example.com/.well-known/openid-configuration \
+  OAUTH_CLIENT_ID=your-client-id \
+  OAUTH_CLIENT_SECRET=your-client-secret
 ```
 
-The `validate_flow` task prints an authorization URL and walks through the full token and user info exchange. Open the URL in your browser, authenticate, then copy the `code` parameter from the provider's redirect and rerun the task with `OAUTH_CODE=<copied_code>`. The redirect URI you configured (default `http://localhost`) must be registered with your OAuth provider. The redirect page itself may fail to load; that's expected because no local server is required.
+Discovery options:
 
-The `/oauth/authorize` and `/oauth/callback` endpoints are always available without a prior Redmine login. If OAuth SSO is disabled or misconfigured, these endpoints simply redirect back to the standard sign-in page, so disabling SSO or allowing both SSO and password logins remains safe.
+- `OAUTH_PROVIDER` - choose `google`, `microsoft`, or `casdoor` to use the built-in presets (`custom` or empty skips discovery).
+- `OAUTH_TENANT` / `OAUTH_MICROSOFT_TENANT` - Microsoft tenant ID or `common`.
+- `OAUTH_BASE_URL` / `OAUTH_CASDOOR_BASE_URL` - Casdoor base URL (e.g. `door.casdoor.com` or `https://door.example.com`).
+- `OAUTH_DISCOVERY_URL` - override the well-known metadata endpoint for any provider.
 
-When using the `configure` task you can specify a mapping preset via `OAUTH_FIELD_PRESET` (`generic`, `microsoft`, `google`) or override individual mappings with `OAUTH_LOGIN_FIELD`, `OAUTH_EMAIL_FIELD`, `OAUTH_FIRSTNAME_FIELD`, and `OAUTH_LASTNAME_FIELD`.
-Additional provisioning options:
+When discovery succeeds the task prints the URL it queried, applies the returned authorization/token/userinfo/JWKS endpoints, fills the scope and recommended mapping preset, and echoes any missing optional fields as warnings. You can override the discovered values in the same command by appending other `OAUTH_*` variables.
 
-- `OAUTH_AUTO_CREATE` – set to `0` to disable automatic user creation
-- `OAUTH_UPDATE_EXISTING` – set to `0` to keep existing user details (including custom fields) unchanged
-- `OAUTH_MATCH_BY_EMAIL` – set to `1` to associate users by email when logins differ
-- `OAUTH_BYPASS_TWOFA` – set to `0` to require Redmine MFA activation after SSO
-- `OAUTH_PKCE` – set to `1` to enable PKCE code challenge and verifier
-- `OAUTH_DEFAULT_GROUPS` – comma-separated group IDs assigned to new users
-- `OAUTH_EXPECTED_ISSUER` – expected issuer (`iss`) value that must be present in the ID token
-- `OAUTH_EXPECTED_CLIENT_ID` – override the `aud` value that must be present in the ID token (defaults to the OAuth client ID)
-- `OAUTH_JWKS_URL` – JWKS endpoint used to download signing keys for RS256 validation
+After configuration you can enable SSO-only mode or tweak behaviour with the management tasks shown below. Running `configure` again will overwrite previous plugin settings, so include all overrides you care about each time.
+
+#### Manual overrides and provisioning flags
+
+- `OAUTH_SCOPE` - requested scopes (defaults to `openid email profile` when discovery does not specify any).
+- `OAUTH_FIELD_PRESET` - mapping preset (`generic`, `microsoft`, `google`, `casdoor`).
+- `OAUTH_LOGIN_FIELD`, `OAUTH_EMAIL_FIELD`, `OAUTH_FIRSTNAME_FIELD`, `OAUTH_LASTNAME_FIELD` - override user attribute mappings.
+- `OAUTH_AUTO_CREATE`, `OAUTH_UPDATE_EXISTING`, `OAUTH_MATCH_BY_EMAIL`, `OAUTH_BYPASS_TWOFA`, `OAUTH_PKCE` - set to `1` or `0` to toggle provisioning options.
+- `OAUTH_DEFAULT_GROUPS` - comma-separated Redmine group IDs assigned to new users.
+- `OAUTH_REDIRECT_URI` - force a specific callback URL (leave blank to auto-generate).
+- `OAUTH_EXPECTED_ISSUER`, `OAUTH_EXPECTED_CLIENT_ID`, `OAUTH_JWKS_URL` - tighten ID token validation.
+- `OAUTH_AUTHORIZE_URL`, `OAUTH_TOKEN_URL`, `OAUTH_USERINFO_URL`, `OAUTH_LOGOUT_URL` - explicit endpoint overrides that replace discovery results.
+
+#### Management tasks
+
+```bash
+# Check current status and the saved endpoints
+bundle exec rake redmine:bless_this_sso:status
+
+# Enable/disable OAuth SSO
+bundle exec rake redmine:bless_this_sso:enable
+bundle exec rake redmine:bless_this_sso:disable
+
+# Toggle login behaviour
+bundle exec rake redmine:bless_this_sso:enable_sso_only
+bundle exec rake redmine:bless_this_sso:disable_sso_only
+
+# Adjust account matching and MFA bypass
+bundle exec rake redmine:bless_this_sso:enable_match_by_email
+bundle exec rake redmine:bless_this_sso:disable_match_by_email
+bundle exec rake redmine:bless_this_sso:enable_bypass_twofa
+bundle exec rake redmine:bless_this_sso:disable_bypass_twofa
+
+# Optional PKCE support
+bundle exec rake redmine:bless_this_sso:enable_pkce
+bundle exec rake redmine:bless_this_sso:disable_pkce
+
+# Basic validation helpers
+bundle exec rake redmine:bless_this_sso:test
+bundle exec rake redmine:bless_this_sso:validate_flow
+# After visiting the authorize URL, rerun with:
+bundle exec rake redmine:bless_this_sso:validate_flow OAUTH_CODE=the-code-from-your-redirect
+
+# Reset settings or list available tasks
+bundle exec rake redmine:bless_this_sso:reset
+bundle exec rake redmine:bless_this_sso:help
+```
+
+`validate_flow` walks through the full authorization code exchange. The `/oauth/authorize` and `/oauth/callback` routes stay accessible even when OAuth SSO is disabled; without a valid configuration they simply redirect back to the standard login form so you can recover safely. The redirect URI defaults to `http://localhost`; register it with your provider and expect the final redirect page to fail to load locally-that is normal because the task only needs the `code` parameter.
 
 ### ID Token Validation
 
@@ -168,7 +195,7 @@ Authorization URL: https://login.microsoftonline.com/{tenant}/oauth2/v2.0/author
 Token URL: https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token
 Expected issuer: https://login.microsoftonline.com/{tenant}/v2.0
 JWKS URL: https://login.microsoftonline.com/{tenant}/discovery/v2.0/keys
-User Info URL: https://graph.microsoft.com/v1.0/me
+User Info URL: https://graph.microsoft.com/v1.0/me or https://graph.microsoft.com/oidc/userinfo
 Logout URL (optional): https://login.microsoftonline.com/{tenant}/oauth2/v2.0/logout
 Expected client ID: your-azure-client-id
 Scope: openid email profile User.Read
@@ -205,20 +232,19 @@ When a user logs out of Redmine:
 
 - The Redmine session is terminated.
 - If a **Logout URL** is configured, the user is redirected there to end the session with the OAuth provider.
-- Otherwise, the next `/oauth/authorize` redirect includes `prompt=login` so the provider forces reauthentication.
 
 ## User Mapping
 
 The plugin maps OAuth user data to Redmine fields using configurable lists of JSON keys. In the plugin settings you can define comma-separated lists for each field; the first non-blank value found in the user info response is used.
 
-A preset dropdown is available to load default mappings for common providers (Generic OpenID, Microsoft Azure AD, Google). After selecting a preset you can still adjust the fields manually. To see which keys your provider returns and how they resolve, run `rake redmine:bless_this_sso:validate_flow`.
+A preset dropdown is available to load default mappings for common providers (Generic OpenID, Microsoft Azure AD, Google, Casdoor). After selecting a preset you can still adjust the fields manually. To see which keys your provider returns and how they resolve, run `rake redmine:bless_this_sso:validate_flow`.
 
 The following settings are available (defaults shown):
 
-- **`oauth_login_field`** – `name,preferred_username,sub,login,userPrincipalName`
-- **`oauth_email_field`** – `email,mail,userPrincipalName`
-- **`oauth_firstname_field`** – `given_name,firstName,first_name,givenName`
-- **`oauth_lastname_field`** – `family_name,lastName,last_name,sn`
+- **`oauth_login_field`** - `name,preferred_username,sub,login,userPrincipalName`
+- **`oauth_email_field`** - `email,mail,userPrincipalName`
+- **`oauth_firstname_field`** - `given_name,firstName,first_name,givenName`
+- **`oauth_lastname_field`** - `family_name,lastName,last_name,sn`
 
 For each custom field on the Redmine user object an additional setting appears. Enter a comma-separated list of OAuth response keys; the first non-blank value populates that custom field. Leave the field blank to ignore it.
 
@@ -236,6 +262,8 @@ oauth_lastname_field: sn,surname
 ## Security
 
 - Uses state parameter to prevent CSRF attacks
+- id_token / JWKS handling
+- PKCE support in OAuth flow
 - Validates OAuth responses before user creation
 - Generates secure random passwords for OAuth users
 - Logs all authentication attempts for auditing

@@ -4,6 +4,7 @@ require_relative '../rails_helper'
 require 'securerandom'
 require 'jwt'
 require 'openssl'
+require_relative '../../lib/bless_this_redmine_sso/discovery'
 
 if defined?(OauthController) && defined?(Setting)
   RSpec.describe OauthController, type: :controller do
@@ -124,6 +125,41 @@ if defined?(OauthController) && defined?(Setting)
 
         expect(flash[:error]).to include('not valid')
         expect(response).to redirect_to(signin_path)
+      end
+    end
+
+    describe 'POST #discover' do
+      before do
+        allow(controller).to receive(:require_admin)
+      end
+
+      it 'returns discovery data when successful' do
+        allow(BlessThisRedmineSso::Discovery).to receive(:discover).and_return(
+          settings: { 'oauth_authorize_url' => 'https://example.com/auth' },
+          warnings: ['check something'],
+          discovery_url: 'https://example.com/.well-known/openid-configuration'
+        )
+
+        post :discover, params: { provider: 'google' }
+
+        expect(response).to be_successful
+        body = JSON.parse(response.body)
+        expect(body['success']).to eq(true)
+        expect(body['settings']['oauth_authorize_url']).to eq('https://example.com/auth')
+        expect(body['warnings']).to include('check something')
+      end
+
+      it 'returns errors from the discovery service' do
+        allow(BlessThisRedmineSso::Discovery).to receive(:discover).and_raise(
+          BlessThisRedmineSso::Discovery::Error, 'boom'
+        )
+
+        post :discover, params: { provider: 'custom' }
+
+        expect(response.status).to eq(422)
+        body = JSON.parse(response.body)
+        expect(body['success']).to eq(false)
+        expect(body['error']).to include('boom')
       end
     end
 

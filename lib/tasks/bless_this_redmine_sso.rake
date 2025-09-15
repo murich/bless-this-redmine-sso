@@ -1,3 +1,5 @@
+require_relative '../bless_this_redmine_sso/discovery'
+
 namespace :redmine do
   namespace :bless_this_sso do
     def plugin_settings
@@ -28,6 +30,12 @@ namespace :redmine do
           'oauth_email_field' => 'email',
           'oauth_firstname_field' => 'given_name',
           'oauth_lastname_field' => 'family_name'
+        },
+        'casdoor' => {
+          'oauth_login_field' => 'name,preferred_username,sub',
+          'oauth_email_field' => 'email',
+          'oauth_firstname_field' => 'given_name,firstName',
+          'oauth_lastname_field' => 'family_name,lastName'
         }
       }
     end
@@ -37,6 +45,31 @@ namespace :redmine do
         v = data[k]
         return v if v && !v.to_s.strip.empty?
       end
+      nil
+    end
+
+    def discovery_options_from_env
+      {
+        provider: ENV['OAUTH_PROVIDER'],
+        discovery_url: ENV['OAUTH_DISCOVERY_URL'],
+        tenant: ENV['OAUTH_TENANT'] || ENV['OAUTH_MICROSOFT_TENANT'],
+        base_url: ENV['OAUTH_BASE_URL'],
+        casdoor_base_url: ENV['OAUTH_CASDOOR_BASE_URL']
+      }
+    end
+
+    def load_discovery_settings
+      options = discovery_options_from_env
+      provider = options[:provider].to_s.strip
+      provider = '' if provider.casecmp('custom').zero?
+      discovery_url = options[:discovery_url].to_s.strip
+
+      return nil if provider.empty? && discovery_url.empty?
+
+      options[:provider] = provider
+      BlessThisRedmineSso::Discovery.discover(**options)
+    rescue BlessThisRedmineSso::Discovery::Error => e
+      puts "⚠️  Discovery failed: #{e.message}"
       nil
     end
 
@@ -59,39 +92,30 @@ namespace :redmine do
       puts "3. Test configuration: rake redmine:bless_this_sso:test"
     end
 
-    desc "Configure OAuth SSO for Casdoor (or custom provider)"
+    desc "Configure OAuth SSO (supports OpenID Connect discovery)"
     task :configure => :environment do
       puts "Configuring OAuth SSO plugin..."
-      
-      # Get configuration from environment or prompt
-      provider_name = ENV['OAUTH_PROVIDER_NAME'] || 'Casdoor SSO'
+
+      discovery_result = load_discovery_settings
+
+      if discovery_result
+        puts "✓ Loaded discovery metadata from #{discovery_result[:discovery_url]}"
+        discovery_result[:warnings].each do |warning|
+          puts "⚠️  #{warning}"
+        end
+      end
+
       client_id = ENV['OAUTH_CLIENT_ID'] || 'redmine-client-id'
       client_secret = ENV['OAUTH_CLIENT_SECRET'] || 'redmine-client-secret-12345678'
-      
-      # Default Casdoor URLs (can be overridden via ENV)
-      authorize_url = ENV['OAUTH_AUTHORIZE_URL'] || 'http://localhost:8082/login/oauth/authorize'
-      token_url = ENV['OAUTH_TOKEN_URL'] || 'http://casdoor_app:8000/api/login/oauth/access_token'
-      userinfo_url = ENV['OAUTH_USERINFO_URL'] || 'http://casdoor_app:8000/api/get-account'
-      scope = ENV['OAUTH_SCOPE'] || 'openid email profile'
-      redirect_uri = ENV['OAUTH_REDIRECT_URI'] || ''
-      logout_url = ENV['OAUTH_LOGOUT_URL'] || ''
-      expected_issuer = ENV['OAUTH_EXPECTED_ISSUER'] || ''
-      expected_client_id = ENV['OAUTH_EXPECTED_CLIENT_ID'] || ''
-      jwks_url = ENV['OAUTH_JWKS_URL'] || ''
 
-      update_existing = ENV['OAUTH_UPDATE_EXISTING'] || '1'
-      match_by_email = ENV['OAUTH_MATCH_BY_EMAIL'] || '0'
-      bypass_twofa = ENV['OAUTH_BYPASS_TWOFA'] || '1'
-      pkce = ENV['OAUTH_PKCE'] || '0'
+      provider_name = ENV['OAUTH_PROVIDER_NAME'].presence ||
+                      discovery_result&.dig(:settings, 'oauth_provider_name') ||
+                      'Casdoor SSO'
 
-      preset = ENV['OAUTH_FIELD_PRESET'] || 'generic'
+      preset_env = ENV['OAUTH_FIELD_PRESET'].presence
+      preset_from_discovery = discovery_result&.dig(:settings, 'oauth_mapping_preset')
+      preset = preset_env || preset_from_discovery || 'generic'
       preset_map = mapping_presets[preset] || mapping_presets['generic']
-      login_field = ENV['OAUTH_LOGIN_FIELD'] || preset_map['oauth_login_field']
-      email_field = ENV['OAUTH_EMAIL_FIELD'] || preset_map['oauth_email_field']
-      firstname_field = ENV['OAUTH_FIRSTNAME_FIELD'] || preset_map['oauth_firstname_field']
-      lastname_field = ENV['OAUTH_LASTNAME_FIELD'] || preset_map['oauth_lastname_field']
-      auto_create = ENV['OAUTH_AUTO_CREATE'] || '1'
-      default_groups = ENV['OAUTH_DEFAULT_GROUPS'] || ''
 
       settings = {
         'oauth_enabled' => '1',
@@ -99,57 +123,84 @@ namespace :redmine do
         'oauth_provider_name' => provider_name,
         'oauth_client_id' => client_id,
         'oauth_client_secret' => client_secret,
-        'oauth_expected_issuer' => expected_issuer,
-        'oauth_expected_client_id' => expected_client_id,
-        'oauth_jwks_url' => jwks_url,
-        'oauth_authorize_url' => authorize_url,
-        'oauth_token_url' => token_url,
-        'oauth_userinfo_url' => userinfo_url,
-        'oauth_scope' => scope,
-        'oauth_redirect_uri' => redirect_uri,
-        'oauth_logout_url' => logout_url,
+        'oauth_auto_create' => ENV['OAUTH_AUTO_CREATE'] || '1',
+        'oauth_update_existing' => ENV['OAUTH_UPDATE_EXISTING'] || '1',
+        'oauth_match_by_email' => ENV['OAUTH_MATCH_BY_EMAIL'] || '0',
+        'oauth_bypass_twofa' => ENV['OAUTH_BYPASS_TWOFA'] || '1',
+        'oauth_pkce' => ENV['OAUTH_PKCE'] || '0',
+        'oauth_default_groups' => ENV['OAUTH_DEFAULT_GROUPS'] || '',
         'oauth_mapping_preset' => preset,
-        'oauth_login_field' => login_field,
-        'oauth_email_field' => email_field,
-        'oauth_firstname_field' => firstname_field,
-        'oauth_lastname_field' => lastname_field,
-        'oauth_auto_create' => auto_create,
-        'oauth_update_existing' => update_existing,
-        'oauth_match_by_email' => match_by_email,
-        'oauth_bypass_twofa' => bypass_twofa,
-        'oauth_pkce' => pkce,
-        'oauth_default_groups' => default_groups
+        'oauth_login_field' => ENV['OAUTH_LOGIN_FIELD'] || preset_map['oauth_login_field'],
+        'oauth_email_field' => ENV['OAUTH_EMAIL_FIELD'] || preset_map['oauth_email_field'],
+        'oauth_firstname_field' => ENV['OAUTH_FIRSTNAME_FIELD'] || preset_map['oauth_firstname_field'],
+        'oauth_lastname_field' => ENV['OAUTH_LASTNAME_FIELD'] || preset_map['oauth_lastname_field'],
+        'oauth_redirect_uri' => ENV['OAUTH_REDIRECT_URI'] || '',
+        'oauth_expected_client_id' => ENV['OAUTH_EXPECTED_CLIENT_ID'] || ''
       }
-      
-      # Save settings
+
+      settings.merge!(discovery_result[:settings]) if discovery_result
+
+      manual_defaults = {
+        'oauth_authorize_url' => 'http://localhost:8082/login/oauth/authorize',
+        'oauth_token_url' => 'http://casdoor_app:8000/api/login/oauth/access_token',
+        'oauth_userinfo_url' => 'http://casdoor_app:8000/api/get-account',
+        'oauth_logout_url' => '',
+        'oauth_scope' => 'openid email profile',
+        'oauth_expected_issuer' => '',
+        'oauth_jwks_url' => ''
+      }
+
+      manual_defaults.each do |key, value|
+        settings[key] = value if settings[key].to_s.strip.empty?
+      end
+
+      env_overrides = {
+        'oauth_authorize_url' => ENV['OAUTH_AUTHORIZE_URL'],
+        'oauth_token_url' => ENV['OAUTH_TOKEN_URL'],
+        'oauth_userinfo_url' => ENV['OAUTH_USERINFO_URL'],
+        'oauth_scope' => ENV['OAUTH_SCOPE'],
+        'oauth_logout_url' => ENV['OAUTH_LOGOUT_URL'],
+        'oauth_expected_issuer' => ENV['OAUTH_EXPECTED_ISSUER'],
+        'oauth_jwks_url' => ENV['OAUTH_JWKS_URL']
+      }
+
+      env_overrides.each do |key, value|
+        next if value.to_s.strip.empty?
+
+        settings[key] = value
+      end
+
+      settings['oauth_provider_name'] = provider_name
+
       Setting.plugin_bless_this_redmine_sso = settings
       Setting.clear_cache
-      
+
       puts "✓ OAuth SSO configured successfully"
       puts ""
       puts "Configuration:"
-      puts "  Provider Name: #{provider_name}"
-      puts "  Client (application) ID: #{client_id}"
-      puts "  Authorization URL: #{authorize_url}"
-      puts "  Token URL: #{token_url}"
-      puts "  User Info URL: #{userinfo_url}"
-      puts "  Scope: #{scope}"
-      puts "  Expected Issuer: #{expected_issuer.blank? ? 'None' : expected_issuer}"
-      puts "  Expected Client ID (aud): #{expected_client_id.blank? ? client_id : expected_client_id}"
-      puts "  JWKS URL: #{jwks_url.blank? ? 'None' : jwks_url}"
-      puts "  Redirect URI: #{redirect_uri.empty? ? 'Auto-generated' : redirect_uri}"
-      puts "  Mapping Preset: #{preset}"
-      puts "  Login Field(s): #{login_field}"
-      puts "  Email Field(s): #{email_field}"
-      puts "  First Name Field(s): #{firstname_field}"
-      puts "  Last Name Field(s): #{lastname_field}"
-      puts "  Logout URL: #{logout_url.blank? ? 'None' : logout_url}"
-      puts "  Auto-create Users: #{setting_enabled?(auto_create) ? 'Enabled' : 'Disabled'}"
-      puts "  Update Existing Users: #{setting_enabled?(update_existing) ? 'Enabled' : 'Disabled'}"
-      puts "  Match Users by Email: #{setting_enabled?(match_by_email) ? 'Enabled' : 'Disabled'}"
-      puts "  Bypass Redmine MFA: #{setting_enabled?(bypass_twofa) ? 'Enabled' : 'Disabled'}"
-      puts "  Use PKCE: #{setting_enabled?(pkce) ? 'Enabled' : 'Disabled'}"
-      puts "  Default Groups: #{default_groups.blank? ? 'None' : default_groups}"
+      puts "  Provider Name: #{settings['oauth_provider_name']}"
+      puts "  Client (application) ID: #{settings['oauth_client_id']}"
+      puts "  Authorization URL: #{settings['oauth_authorize_url']}"
+      puts "  Token URL: #{settings['oauth_token_url']}"
+      puts "  User Info URL: #{settings['oauth_userinfo_url']}"
+      puts "  Scope: #{settings['oauth_scope']}"
+      puts "  Expected Issuer: #{settings['oauth_expected_issuer'].blank? ? 'None' : settings['oauth_expected_issuer']}"
+      expected_aud = settings['oauth_expected_client_id'].presence || settings['oauth_client_id']
+      puts "  Expected Client ID (aud): #{expected_aud}"
+      puts "  JWKS URL: #{settings['oauth_jwks_url'].blank? ? 'None' : settings['oauth_jwks_url']}"
+      puts "  Redirect URI: #{settings['oauth_redirect_uri'].empty? ? 'Auto-generated' : settings['oauth_redirect_uri']}"
+      puts "  Mapping Preset: #{settings['oauth_mapping_preset'] || 'custom'}"
+      puts "  Login Field(s): #{settings['oauth_login_field']}"
+      puts "  Email Field(s): #{settings['oauth_email_field']}"
+      puts "  First Name Field(s): #{settings['oauth_firstname_field']}"
+      puts "  Last Name Field(s): #{settings['oauth_lastname_field']}"
+      puts "  Logout URL: #{settings['oauth_logout_url'].blank? ? 'None' : settings['oauth_logout_url']}"
+      puts "  Auto-create Users: #{setting_enabled?(settings['oauth_auto_create']) ? 'Enabled' : 'Disabled'}"
+      puts "  Update Existing Users: #{setting_enabled?(settings['oauth_update_existing']) ? 'Enabled' : 'Disabled'}"
+      puts "  Match Users by Email: #{setting_enabled?(settings['oauth_match_by_email']) ? 'Enabled' : 'Disabled'}"
+      puts "  Bypass Redmine MFA: #{setting_enabled?(settings['oauth_bypass_twofa']) ? 'Enabled' : 'Disabled'}"
+      puts "  Use PKCE: #{setting_enabled?(settings['oauth_pkce']) ? 'Enabled' : 'Disabled'}"
+      puts "  Default Groups: #{settings['oauth_default_groups'].blank? ? 'None' : settings['oauth_default_groups']}"
       puts ""
       puts "OAuth SSO is now enabled. Test at: /oauth/authorize"
       puts "To enable SSO-only mode: rake redmine:bless_this_sso:enable_sso_only"
@@ -542,6 +593,8 @@ namespace :redmine do
       puts "Available OAuth SSO rake tasks:"
       puts "==============================="
       puts ""
+      puts "Run tasks with: bundle exec rake redmine:bless_this_sso:<task> [ENV=VALUE ...]"
+      puts ""
       puts "Setup tasks:"
       puts "  rake redmine:bless_this_sso:install       - Install plugin (check status)"
       puts "  rake redmine:bless_this_sso:configure     - Configure OAuth provider"
@@ -549,46 +602,65 @@ namespace :redmine do
       puts "  rake redmine:bless_this_sso:validate_flow - Validate full OAuth flow"
       puts ""
       puts "Management tasks:"
-      puts "  rake redmine:bless_this_sso:status                - Show current configuration"
-      puts "  rake redmine:bless_this_sso:enable                - Enable OAuth SSO"
-      puts "  rake redmine:bless_this_sso:disable               - Disable OAuth SSO"
-      puts "  rake redmine:bless_this_sso:enable_sso_only       - Enable SSO-only mode"
-      puts "  rake redmine:bless_this_sso:disable_sso_only      - Disable SSO-only mode"
-      puts "  rake redmine:bless_this_sso:enable_match_by_email - Match users by email"
+      puts "  rake redmine:bless_this_sso:status                 - Show current configuration"
+      puts "  rake redmine:bless_this_sso:enable                 - Enable OAuth SSO"
+      puts "  rake redmine:bless_this_sso:disable                - Disable OAuth SSO"
+      puts "  rake redmine:bless_this_sso:enable_sso_only        - Enable SSO-only mode"
+      puts "  rake redmine:bless_this_sso:disable_sso_only       - Disable SSO-only mode"
+      puts "  rake redmine:bless_this_sso:enable_match_by_email  - Match users by email"
       puts "  rake redmine:bless_this_sso:disable_match_by_email - Do not match by email"
-      puts "  rake redmine:bless_this_sso:enable_bypass_twofa   - Skip Redmine MFA activation"
-      puts "  rake redmine:bless_this_sso:disable_bypass_twofa  - Require Redmine MFA activation"
-      puts "  rake redmine:bless_this_sso:enable_pkce           - Use PKCE code challenge"
-      puts "  rake redmine:bless_this_sso:disable_pkce          - Do not use PKCE"
-      puts "  rake redmine:bless_this_sso:reset                 - Reset configuration"
+      puts "  rake redmine:bless_this_sso:enable_bypass_twofa    - Skip Redmine MFA activation"
+      puts "  rake redmine:bless_this_sso:disable_bypass_twofa   - Require Redmine MFA activation"
+      puts "  rake redmine:bless_this_sso:enable_pkce            - Use PKCE code challenge"
+      puts "  rake redmine:bless_this_sso:disable_pkce           - Do not use PKCE"
+      puts "  rake redmine:bless_this_sso:reset                  - Reset configuration"
       puts ""
-      puts "Environment variables for configuration:"
-      puts "  OAUTH_PROVIDER_NAME     - Display name (default: Casdoor SSO)"
-      puts "  OAUTH_CLIENT_ID         - OAuth client ID"
-      puts "  OAUTH_CLIENT_SECRET     - OAuth client secret"
-      puts "  OAUTH_AUTHORIZE_URL     - Authorization endpoint"
-      puts "  OAUTH_TOKEN_URL         - Token exchange endpoint"
-      puts "  OAUTH_USERINFO_URL      - User info endpoint"
-      puts "  OAUTH_SCOPE             - OAuth scopes (default: openid email profile)"
-      puts "  OAUTH_REDIRECT_URI      - Callback URL (optional, auto-generated)"
-      puts "  OAUTH_LOGOUT_URL        - Provider logout endpoint"
-      puts "  OAUTH_EXPECTED_ISSUER   - Expected `iss` claim for ID tokens"
-      puts "  OAUTH_EXPECTED_CLIENT_ID  - Override expected `aud` (defaults to client ID)"
-      puts "  OAUTH_JWKS_URL          - JWKS endpoint used for RS256 signature validation"
-      puts "  OAUTH_FIELD_PRESET      - Mapping preset (generic, microsoft, google)"
-      puts "  OAUTH_LOGIN_FIELD       - Override login mapping"
-      puts "  OAUTH_EMAIL_FIELD       - Override email mapping"
-      puts "  OAUTH_FIRSTNAME_FIELD   - Override first name mapping"
-      puts "  OAUTH_LASTNAME_FIELD    - Override last name mapping"
-      puts "  OAUTH_AUTO_CREATE       - Auto-create users (1 or 0)"
-      puts "  OAUTH_UPDATE_EXISTING   - Update existing users (1 or 0)"
-      puts "  OAUTH_MATCH_BY_EMAIL    - Match users by email when logins differ (1 or 0)"
-      puts "  OAUTH_BYPASS_TWOFA      - Skip Redmine two-factor activation (1 or 0)"
-      puts "  OAUTH_PKCE              - Use PKCE code challenge (1 or 0)"
-      puts "  OAUTH_DEFAULT_GROUPS    - Default group IDs for new users"
+      puts "Discovery shortcuts (used with :configure):"
+      puts "  OAUTH_PROVIDER=google                                                     # Google Workspace defaults"
+      puts "  OAUTH_PROVIDER=microsoft OAUTH_MICROSOFT_TENANT=<tenant>                  # Microsoft Entra ID defaults"
+      puts "  OAUTH_PROVIDER=casdoor   OAUTH_CASDOOR_BASE_URL=https://door.example.com  # Casdoor defaults"
+      puts "  OAUTH_DISCOVERY_URL=https://id.example.com/.well-known/openid-configuration"
+      puts "    (Always include OAUTH_CLIENT_ID and OAUTH_CLIENT_SECRET alongside the above.)"
       puts ""
-      puts "Example for Casdoor:"
-      puts "  rake redmine:bless_this_sso:configure OAUTH_CLIENT_ID=my-client OAUTH_CLIENT_SECRET=my-secret"
+      puts "General configuration variables:"
+      puts "  OAUTH_PROVIDER_NAME         - Display name (default: Casdoor SSO)"
+      puts "  OAUTH_CLIENT_ID             - OAuth client ID"
+      puts "  OAUTH_CLIENT_SECRET         - OAuth client secret"
+      puts "  OAUTH_SCOPE                 - OAuth scopes (default: openid email profile)"
+      puts "  OAUTH_REDIRECT_URI          - Callback URL (optional, auto-generated)"
+      puts "  OAUTH_LOGOUT_URL            - Provider logout endpoint"
+      puts "  OAUTH_DEFAULT_GROUPS        - Default group IDs for new users"
+      puts ""
+      puts "Discovery tuning and endpoint overrides:"
+      puts "  OAUTH_PROVIDER                          - Discovery preset (google, microsoft, casdoor, custom)"
+      puts "  OAUTH_TENANT / OAUTH_MICROSOFT_TENANT   - Microsoft tenant ID or domain"
+      puts "  OAUTH_BASE_URL / OAUTH_CASDOOR_BASE_URL - Base URL for Casdoor discovery"
+      puts "  OAUTH_DISCOVERY_URL                     - Explicit discovery document URL"
+      puts "  OAUTH_AUTHORIZE_URL                     - Authorization endpoint override"
+      puts "  OAUTH_TOKEN_URL                         - Token endpoint override"
+      puts "  OAUTH_USERINFO_URL                      - User info endpoint override"
+      puts "  OAUTH_EXPECTED_ISSUER                   - Expected `iss` claim for ID tokens"
+      puts "  OAUTH_EXPECTED_CLIENT_ID                - Override expected `aud` (defaults to client ID)"
+      puts "  OAUTH_JWKS_URL                          - JWKS endpoint for RS256 verification"
+      puts ""
+      puts "Mapping and provisioning options:"
+      puts "  OAUTH_FIELD_PRESET          - Mapping preset (generic, microsoft, google, casdoor)"
+      puts "  OAUTH_LOGIN_FIELD           - Override login mapping"
+      puts "  OAUTH_EMAIL_FIELD           - Override email mapping"
+      puts "  OAUTH_FIRSTNAME_FIELD       - Override first name mapping"
+      puts "  OAUTH_LASTNAME_FIELD        - Override last name mapping"
+      puts "  OAUTH_AUTO_CREATE           - Auto-create users (1 or 0)"
+      puts "  OAUTH_UPDATE_EXISTING       - Update existing users (1 or 0)"
+      puts "  OAUTH_MATCH_BY_EMAIL        - Match users by email when logins differ (1 or 0)"
+      puts "  OAUTH_BYPASS_TWOFA          - Skip Redmine two-factor activation (1 or 0)"
+      puts "  OAUTH_PKCE                  - Use PKCE code challenge (1 or 0)"
+      puts ""
+      puts "Example:"
+      puts "  bundle exec rake redmine:bless_this_sso:configure \\"
+      puts "    OAUTH_PROVIDER=microsoft \\"
+      puts "    OAUTH_MICROSOFT_TENANT=contoso.onmicrosoft.com \\"
+      puts "    OAUTH_CLIENT_ID=your-client-id \\"
+      puts "    OAUTH_CLIENT_SECRET=your-client-secret"
     end
   end
 end

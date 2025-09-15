@@ -40,4 +40,5 @@ Redmine::Plugin.register :bless_this_redmine_sso do
 end
 
 require_relative 'lib/bless_this_redmine_sso/hooks'
+require_relative 'lib/bless_this_redmine_sso/discovery'
 require_relative 'lib/bless_this_redmine_sso/patches/account_controller_patch'
