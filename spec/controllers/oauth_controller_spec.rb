@@ -2,6 +2,8 @@
 
 require_relative '../rails_helper'
 require 'securerandom'
+require 'jwt'
+require 'openssl'
 
 if defined?(OauthController) && defined?(Setting)
   RSpec.describe OauthController, type: :controller do
@@ -98,7 +100,8 @@ if defined?(OauthController) && defined?(Setting)
 
       it 'shows validation errors when user creation fails' do
         session[:oauth_state] = 'expected'
-        allow(controller).to receive(:exchange_code_for_token).and_return('access_token' => 'token')
+        allow(controller).to receive(:exchange_code_for_token).and_return('access_token' => 'token', 'id_token' => 'jwt')
+        allow(controller).to receive(:verify_id_token).and_return('sub' => 'user-1')
         allow(controller).to receive(:get_user_info).and_return({})
 
         errors = double('errors', any?: true, full_messages: ["Login can't be blank"])
@@ -108,6 +111,18 @@ if defined?(OauthController) && defined?(Setting)
         get :callback, params: { state: 'expected', code: 'abc' }
 
         expect(flash[:error]).to include("Login can't be blank")
+        expect(response).to redirect_to(signin_path)
+      end
+
+      it 'shows an error when id_token validation fails' do
+        session[:oauth_state] = 'expected'
+        allow(controller).to receive(:exchange_code_for_token).and_return('access_token' => 'token', 'id_token' => 'invalid')
+        expect(controller).to receive(:verify_id_token).and_raise(OauthController::IdTokenValidationError.new('not valid'))
+        expect(controller).not_to receive(:get_user_info)
+
+        get :callback, params: { state: 'expected', code: 'abc' }
+
+        expect(flash[:error]).to include('not valid')
         expect(response).to redirect_to(signin_path)
       end
     end
@@ -145,12 +160,12 @@ if defined?(OauthController) && defined?(Setting)
     describe '#exchange_code_for_token' do
       before do
         @form_params = {}
-        http = double('http')
-        allow(Net::HTTP).to receive(:new).and_return(http)
-        allow(http).to receive(:use_ssl=)
-        allow(http).to receive(:open_timeout=)
-        allow(http).to receive(:read_timeout=)
-        allow(http).to receive(:request).and_return(double(code: '200', body: '{}'))
+        @http = double('http')
+        allow(Net::HTTP).to receive(:new).and_return(@http)
+        allow(@http).to receive(:use_ssl=)
+        allow(@http).to receive(:open_timeout=)
+        allow(@http).to receive(:read_timeout=)
+        allow(@http).to receive(:request).and_return(double(code: '200', body: '{}'))
         request = double('request')
         allow(Net::HTTP::Post).to receive(:new).and_return(request)
         allow(request).to receive(:[]=)
@@ -180,6 +195,150 @@ if defined?(OauthController) && defined?(Setting)
         session[:oauth_code_verifier] = 'verifier'
         controller.send(:exchange_code_for_token, 'abc')
         expect(@form_params).to include('code_verifier' => 'verifier')
+      end
+
+      it 'stores the id_token in the session when provided' do
+        Setting.plugin_bless_this_redmine_sso = {
+          'oauth_token_url' => 'https://example.com/token',
+          'oauth_client_id' => 'cid',
+          'oauth_client_secret' => 'secret',
+          'oauth_redirect_uri' => 'http://test.host/oauth/callback'
+        }
+        allow(@http).to receive(:request).and_return(double(code: '200', body: '{"id_token":"jwt-token"}'))
+
+        result = controller.send(:exchange_code_for_token, 'abc')
+
+        expect(result['id_token']).to eq('jwt-token')
+        expect(session[:oauth_id_token]).to eq('jwt-token')
+      end
+    end
+
+    describe '#verify_id_token' do
+      let(:secret) { 'secret-key' }
+      let(:issuer) { 'https://issuer.example' }
+      let(:client_id) { 'cid-123' }
+      let(:base_payload) do
+        {
+          'iss' => issuer,
+          'aud' => client_id,
+          'sub' => 'user-1',
+          'exp' => (Time.now + 3600).to_i,
+          'iat' => Time.now.to_i
+        }
+      end
+
+      let(:plugin_settings) do
+        {
+          'oauth_client_secret' => secret,
+          'oauth_client_id' => client_id,
+          'oauth_expected_issuer' => issuer,
+          'oauth_expected_client_id' => client_id,
+          'oauth_jwks_url' => ''
+        }
+      end
+
+      before do
+        Setting.plugin_bless_this_redmine_sso = plugin_settings
+      end
+
+      it 'returns claims for a valid token' do
+        token = JWT.encode(base_payload, secret, 'HS256')
+        claims = controller.send(:verify_id_token, token)
+        expect(claims['sub']).to eq('user-1')
+      end
+
+      it 'raises an error when the signature is invalid' do
+        token = JWT.encode(base_payload, 'other-secret', 'HS256')
+        expect do
+          controller.send(:verify_id_token, token)
+        end.to raise_error(
+          OauthController::IdTokenValidationError,
+          I18n.t(:error_id_token_signature, scope: :bless_this_redmine_sso)
+        )
+      end
+
+      it 'raises an error when the issuer does not match' do
+        token = JWT.encode(base_payload.merge('iss' => 'https://other.example'), secret, 'HS256')
+        expect do
+          controller.send(:verify_id_token, token)
+        end.to raise_error(
+          OauthController::IdTokenValidationError,
+          I18n.t(:error_id_token_invalid_issuer, scope: :bless_this_redmine_sso)
+        )
+      end
+
+      it 'raises an error when the audience does not match' do
+        token = JWT.encode(base_payload.merge('aud' => 'different-audience'), secret, 'HS256')
+        expect do
+          controller.send(:verify_id_token, token)
+        end.to raise_error(
+          OauthController::IdTokenValidationError,
+          I18n.t(:error_id_token_invalid_audience, scope: :bless_this_redmine_sso)
+        )
+      end
+
+      context 'with RS256 tokens' do
+        let(:jwks_url) { 'https://example.com/jwks.json' }
+        let(:plugin_settings) { super().merge('oauth_jwks_url' => jwks_url) }
+        let(:rsa_key) { OpenSSL::PKey::RSA.generate(2048) }
+        let(:jwk) { JWT::JWK::RSA.new(rsa_key) }
+
+        before do
+          allow(controller).to receive(:load_jwks_keys).with(jwks_url).and_return([jwk.export])
+        end
+
+        it 'returns claims for a valid token' do
+          token = JWT.encode(base_payload, rsa_key, 'RS256', kid: jwk.kid)
+          claims = controller.send(:verify_id_token, token)
+          expect(claims['sub']).to eq('user-1')
+        end
+
+        it 'raises an error when the signature is invalid' do
+          other_key = OpenSSL::PKey::RSA.generate(2048)
+          token = JWT.encode(base_payload, other_key, 'RS256', kid: jwk.kid)
+
+          expect do
+            controller.send(:verify_id_token, token)
+          end.to raise_error(
+            OauthController::IdTokenValidationError,
+            I18n.t(:error_id_token_signature, scope: :bless_this_redmine_sso)
+          )
+        end
+
+        it 'raises an error when the key cannot be found' do
+          allow(controller).to receive(:load_jwks_keys).with(jwks_url).and_return([])
+          token = JWT.encode(base_payload, rsa_key, 'RS256', kid: jwk.kid)
+
+          expect do
+            controller.send(:verify_id_token, token)
+          end.to raise_error(
+            OauthController::IdTokenValidationError,
+            I18n.t(:error_id_token_jwk_not_found, scope: :bless_this_redmine_sso, kid: jwk.kid)
+          )
+        end
+
+        it 'raises an error when the kid header is missing' do
+          token = JWT.encode(base_payload, rsa_key, 'RS256')
+
+          expect do
+            controller.send(:verify_id_token, token)
+          end.to raise_error(
+            OauthController::IdTokenValidationError,
+            I18n.t(:error_id_token_missing_kid, scope: :bless_this_redmine_sso)
+          )
+        end
+      end
+
+      it 'raises an error when RS256 tokens are returned without a JWKS URL' do
+        rsa_key = OpenSSL::PKey::RSA.generate(2048)
+        token = JWT.encode(base_payload, rsa_key, 'RS256', kid: 'kid-123')
+
+        expect do
+          controller.send(:verify_id_token, token)
+        end.to raise_error(
+          OauthController::IdTokenValidationError,
+          I18n.t(:error_id_token_missing_jwks_url, scope: :bless_this_redmine_sso)
+        )
       end
     end
 

@@ -45,6 +45,9 @@ A comprehensive OAuth/OpenID Connect SSO plugin for Redmine that supports any OA
    - **Token URL**: OAuth token exchange endpoint  
    - **User Info URL**: Endpoint to retrieve user information
    - **Scope**: OAuth scopes (e.g., "openid email profile")
+  - **Expected issuer**: OpenID Connect issuer URL that must match the `id_token` (leave blank to skip issuer verification)
+   - **Expected client ID**: Optional audience override for the `id_token` (defaults to the OAuth client ID)
+   - **JWKS URL**: Public JSON Web Key Set endpoint required to validate RS256-signed ID tokens
    - **Redirect URI**: Leave empty to auto-generate
 
    Any custom fields defined for Redmine users will appear below with a field to map OAuth keys. Provide a comma-separated list of keys for each custom field; leave blank to ignore it.
@@ -62,7 +65,10 @@ You can also configure the plugin using rake commands:
 
 ```bash
 # Configure OAuth SSO
-rake redmine:bless_this_sso:configure OAUTH_CLIENT_ID=your-client-id OAUTH_CLIENT_SECRET=your-secret OAUTH_LOGOUT_URL=https://your-provider.example/logout
+rake redmine:bless_this_sso:configure OAUTH_CLIENT_ID=your-client-id OAUTH_CLIENT_SECRET=your-secret \
+  OAUTH_EXPECTED_ISSUER=https://your-provider.example \
+  OAUTH_EXPECTED_CLIENT_ID=your-audience-value \
+  OAUTH_LOGOUT_URL=https://your-provider.example/logout
 
 # Enable OAuth SSO
 rake redmine:bless_this_sso:enable
@@ -122,15 +128,25 @@ Additional provisioning options:
 - `OAUTH_BYPASS_TWOFA` – set to `0` to require Redmine MFA activation after SSO
 - `OAUTH_PKCE` – set to `1` to enable PKCE code challenge and verifier
 - `OAUTH_DEFAULT_GROUPS` – comma-separated group IDs assigned to new users
+- `OAUTH_EXPECTED_ISSUER` – expected issuer (`iss`) value that must be present in the ID token
+- `OAUTH_EXPECTED_CLIENT_ID` – override the `aud` value that must be present in the ID token (defaults to the OAuth client ID)
+- `OAUTH_JWKS_URL` – JWKS endpoint used to download signing keys for RS256 validation
+
+### ID Token Validation
+
+When the OAuth provider returns an `id_token`, the plugin verifies the signature and the OpenID Connect claims using the [`jwt`](https://github.com/jwt/ruby-jwt) library. HMAC-signed tokens (`HS256`, `HS384`, `HS512`) are validated with the configured OAuth client secret, while RSA-signed tokens (`RS256`) are checked against the public keys served by the **JWKS URL** (or `OAUTH_JWKS_URL`) setting. When provided, the **Expected issuer** and **Expected client ID** settings must match the `iss` and `aud` claims and can also be set through the `OAUTH_EXPECTED_ISSUER` and `OAUTH_EXPECTED_CLIENT_ID` environment variables; leave them blank to skip those specific checks. If any validation step fails, the login is aborted and the user is shown an error describing the validation issue.
 
 ## Supported Providers
 
 ### Casdoor
 ```
-Authorization URL: http://your-casdoor:8082/login/oauth/authorize
-Token URL: http://your-casdoor:8000/api/login/oauth/access_token
-User Info URL: http://your-casdoor:8000/api/get-account
-Logout URL: http://your-casdoor:8000/logout
+Authorization URL: http://localhost:8082/login/oauth/authorize
+Token URL: http://casdoor_app:8000/api/login/oauth/access_token
+Expected issuer: http://casdoor_app:8000
+JWKS URL: http://casdoor_app:8000/.well-known/jwks.json
+User Info URL: http://casdoor_app:8000/api/get-account
+Logout URL (optional): http://casdoor_app:8000/logout
+Expected client ID: redmine-client-id
 Scope: openid email profile
 ```
 
@@ -138,8 +154,11 @@ Scope: openid email profile
 ```
 Authorization URL: https://accounts.google.com/o/oauth2/v2/auth
 Token URL: https://oauth2.googleapis.com/token
+Expected issuer: https://accounts.google.com
+JWKS URL: https://www.googleapis.com/oauth2/v3/certs
 User Info URL: https://www.googleapis.com/oauth2/v2/userinfo
-Logout URL: https://accounts.google.com/logout
+Logout URL (optional): https://accounts.google.com/logout
+Expected client ID: your-google-client-id
 Scope: openid email profile
 ```
 
@@ -147,8 +166,11 @@ Scope: openid email profile
 ```
 Authorization URL: https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize
 Token URL: https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token
+Expected issuer: https://login.microsoftonline.com/{tenant}/v2.0
+JWKS URL: https://login.microsoftonline.com/{tenant}/discovery/v2.0/keys
 User Info URL: https://graph.microsoft.com/v1.0/me
-Logout URL: https://login.microsoftonline.com/{tenant}/oauth2/v2.0/logout
+Logout URL (optional): https://login.microsoftonline.com/{tenant}/oauth2/v2.0/logout
+Expected client ID: your-azure-client-id
 Scope: openid email profile User.Read
 ```
 

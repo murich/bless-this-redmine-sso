@@ -75,6 +75,9 @@ namespace :redmine do
       scope = ENV['OAUTH_SCOPE'] || 'openid email profile'
       redirect_uri = ENV['OAUTH_REDIRECT_URI'] || ''
       logout_url = ENV['OAUTH_LOGOUT_URL'] || ''
+      expected_issuer = ENV['OAUTH_EXPECTED_ISSUER'] || ''
+      expected_client_id = ENV['OAUTH_EXPECTED_CLIENT_ID'] || ''
+      jwks_url = ENV['OAUTH_JWKS_URL'] || ''
 
       update_existing = ENV['OAUTH_UPDATE_EXISTING'] || '1'
       match_by_email = ENV['OAUTH_MATCH_BY_EMAIL'] || '0'
@@ -96,6 +99,9 @@ namespace :redmine do
         'oauth_provider_name' => provider_name,
         'oauth_client_id' => client_id,
         'oauth_client_secret' => client_secret,
+        'oauth_expected_issuer' => expected_issuer,
+        'oauth_expected_client_id' => expected_client_id,
+        'oauth_jwks_url' => jwks_url,
         'oauth_authorize_url' => authorize_url,
         'oauth_token_url' => token_url,
         'oauth_userinfo_url' => userinfo_url,
@@ -128,6 +134,9 @@ namespace :redmine do
       puts "  Token URL: #{token_url}"
       puts "  User Info URL: #{userinfo_url}"
       puts "  Scope: #{scope}"
+      puts "  Expected Issuer: #{expected_issuer.blank? ? 'None' : expected_issuer}"
+      puts "  Expected Client ID (aud): #{expected_client_id.blank? ? client_id : expected_client_id}"
+      puts "  JWKS URL: #{jwks_url.blank? ? 'None' : jwks_url}"
       puts "  Redirect URI: #{redirect_uri.empty? ? 'Auto-generated' : redirect_uri}"
       puts "  Mapping Preset: #{preset}"
       puts "  Login Field(s): #{login_field}"
@@ -335,6 +344,9 @@ namespace :redmine do
       puts "  Token URL: #{settings['oauth_token_url']}"
       puts "  User Info URL: #{settings['oauth_userinfo_url']}"
       puts "  Scope: #{settings['oauth_scope']}"
+      puts "  Expected Issuer: #{settings['oauth_expected_issuer'].blank? ? 'None' : settings['oauth_expected_issuer']}"
+      puts "  Expected Client ID (aud): #{settings['oauth_expected_client_id'].blank? ? settings['oauth_client_id'] : settings['oauth_expected_client_id']}"
+      puts "  JWKS URL: #{settings['oauth_jwks_url'].blank? ? 'None' : settings['oauth_jwks_url']}"
       puts "  Redirect URI: #{settings['oauth_redirect_uri'].empty? ? 'Auto-generated' : settings['oauth_redirect_uri']}"
       puts "  Logout URL: #{settings['oauth_logout_url'].blank? ? 'None' : settings['oauth_logout_url']}"
       puts "  Mapping Preset: #{settings['oauth_mapping_preset'] || 'custom'}"
@@ -546,8 +558,8 @@ namespace :redmine do
       puts "  rake redmine:bless_this_sso:disable_match_by_email - Do not match by email"
       puts "  rake redmine:bless_this_sso:enable_bypass_twofa   - Skip Redmine MFA activation"
       puts "  rake redmine:bless_this_sso:disable_bypass_twofa  - Require Redmine MFA activation"
-      puts "  rake redmine:bless_this_sso:enable_pkce         - Use PKCE code challenge"
-      puts "  rake redmine:bless_this_sso:disable_pkce        - Do not use PKCE"
+      puts "  rake redmine:bless_this_sso:enable_pkce           - Use PKCE code challenge"
+      puts "  rake redmine:bless_this_sso:disable_pkce          - Do not use PKCE"
       puts "  rake redmine:bless_this_sso:reset                 - Reset configuration"
       puts ""
       puts "Environment variables for configuration:"
@@ -560,6 +572,9 @@ namespace :redmine do
       puts "  OAUTH_SCOPE             - OAuth scopes (default: openid email profile)"
       puts "  OAUTH_REDIRECT_URI      - Callback URL (optional, auto-generated)"
       puts "  OAUTH_LOGOUT_URL        - Provider logout endpoint"
+      puts "  OAUTH_EXPECTED_ISSUER   - Expected `iss` claim for ID tokens"
+      puts "  OAUTH_EXPECTED_CLIENT_ID  - Override expected `aud` (defaults to client ID)"
+      puts "  OAUTH_JWKS_URL          - JWKS endpoint used for RS256 signature validation"
       puts "  OAUTH_FIELD_PRESET      - Mapping preset (generic, microsoft, google)"
       puts "  OAUTH_LOGIN_FIELD       - Override login mapping"
       puts "  OAUTH_EMAIL_FIELD       - Override email mapping"

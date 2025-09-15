@@ -3,8 +3,11 @@ require 'securerandom'
 require 'uri'
 require 'base64'
 require 'digest'
+require 'jwt'
+require 'openssl'
 
 class OauthController < ApplicationController
+  class IdTokenValidationError < StandardError; end
   # Allow OAuth endpoints to be accessed without prior Redmine login
   skip_before_action :check_if_login_required, only: %i[authorize callback], raise: false
   
@@ -73,6 +76,16 @@ class OauthController < ApplicationController
         token_response = exchange_code_for_token(code)
         
         if token_response && token_response['access_token']
+          begin
+            verify_id_token(token_response['id_token'])
+          rescue IdTokenValidationError => e
+            session.delete(:oauth_id_token)
+            Rails.logger.error "ID token validation failed: #{e.message}"
+            flash[:error] = l(:flash_invalid_id_token, scope: :bless_this_redmine_sso, error: e.message)
+            redirect_to signin_path
+            return
+          end
+
           # Get user info from OAuth provider
           user_info = get_user_info(token_response['access_token'])
           Rails.logger.info "OAuth user info: #{user_info.inspect}"
@@ -143,9 +156,11 @@ class OauthController < ApplicationController
 
     settings = Setting.plugin_bless_this_redmine_sso
     uri = URI(settings['oauth_token_url'])
-    
+
     redirect_uri = settings['oauth_redirect_uri'].presence || "#{request.base_url}/oauth/callback"
-    
+
+    session.delete(:oauth_id_token)
+
     params = {
       'grant_type' => 'authorization_code',
       'client_id' => settings['oauth_client_id'],
@@ -170,7 +185,9 @@ class OauthController < ApplicationController
       response = http.request(request)
 
       if response.code == '200'
-        JSON.parse(response.body)
+        data = JSON.parse(response.body)
+        session[:oauth_id_token] = data['id_token'] if data['id_token'].present?
+        data
       else
         Rails.logger.error "Token exchange failed: #{response.body}"
         nil
@@ -182,6 +199,134 @@ class OauthController < ApplicationController
       Rails.logger.error "Token exchange error: #{e.message}"
       nil
     end
+  end
+
+  def verify_id_token(id_token)
+    settings = Setting.plugin_bless_this_redmine_sso
+
+    raise IdTokenValidationError, l(:error_id_token_missing, scope: :bless_this_redmine_sso) if id_token.blank?
+
+    expected_issuer = settings['oauth_expected_issuer'].presence
+    expected_audience = settings['oauth_expected_client_id'].presence || settings['oauth_client_id'].presence
+
+    begin
+      header = JWT.decode(id_token, nil, false).last || {}
+    rescue JWT::DecodeError => e
+      raise IdTokenValidationError, e.message
+    end
+
+    algorithm = header['alg'].to_s
+    raise IdTokenValidationError, l(:error_id_token_missing_algorithm, scope: :bless_this_redmine_sso) if algorithm.blank?
+
+    options = {
+      verify_aud: expected_audience.present?,
+      verify_iss: expected_issuer.present?,
+      verify_expiration: true,
+      verify_iat: false
+    }
+    options[:aud] = expected_audience if expected_audience.present?
+    options[:iss] = expected_issuer if expected_issuer.present?
+
+    case algorithm
+    when 'HS256', 'HS384', 'HS512'
+      secret = settings['oauth_client_secret'].to_s
+      if secret.blank?
+        raise IdTokenValidationError, l(:error_id_token_missing_secret, scope: :bless_this_redmine_sso)
+      end
+      payload, = JWT.decode(id_token, secret, true, options.merge(algorithm: algorithm))
+      payload
+    when 'RS256'
+      jwks_url = settings['oauth_jwks_url'].to_s
+      if jwks_url.blank?
+        raise IdTokenValidationError, l(:error_id_token_missing_jwks_url, scope: :bless_this_redmine_sso)
+      end
+
+      kid = header['kid'].to_s
+      if kid.blank?
+        raise IdTokenValidationError, l(:error_id_token_missing_kid, scope: :bless_this_redmine_sso)
+      end
+
+      jwk = fetch_jwk_for_kid(jwks_url, kid)
+      payload, = JWT.decode(id_token, jwk.public_key, true, options.merge(algorithm: 'RS256'))
+      payload
+    else
+      raise IdTokenValidationError, l(:error_id_token_unsupported_algorithm, scope: :bless_this_redmine_sso, algorithm: algorithm)
+    end
+  rescue JWT::InvalidIssuerError
+    raise IdTokenValidationError, l(:error_id_token_invalid_issuer, scope: :bless_this_redmine_sso)
+  rescue JWT::InvalidAudError
+    raise IdTokenValidationError, l(:error_id_token_invalid_audience, scope: :bless_this_redmine_sso)
+  rescue JWT::ExpiredSignature
+    raise IdTokenValidationError, l(:error_id_token_expired, scope: :bless_this_redmine_sso)
+  rescue JWT::VerificationError
+    raise IdTokenValidationError, l(:error_id_token_signature, scope: :bless_this_redmine_sso)
+  rescue JWT::DecodeError => e
+    raise IdTokenValidationError, e.message
+  end
+
+  def fetch_jwk_for_kid(jwks_url, kid)
+    jwks = load_jwks_keys(jwks_url)
+    jwk_hash = jwks.find do |key|
+      next unless key.is_a?(Hash)
+
+      candidate = key['kid']
+      candidate = key[:kid] if candidate.nil?
+      candidate.to_s == kid
+    end
+    unless jwk_hash
+      raise IdTokenValidationError, l(:error_id_token_jwk_not_found, scope: :bless_this_redmine_sso, kid: kid)
+    end
+
+    begin
+      normalized_jwk = jwk_hash.each_with_object({}) do |(key, value), hash|
+        hash[key.to_s] = value
+      end
+
+      JWT::JWK.import(normalized_jwk)
+    rescue StandardError => e
+      raise IdTokenValidationError, l(:error_id_token_jwk_import, scope: :bless_this_redmine_sso, error: e.message)
+    end
+  end
+
+  def load_jwks_keys(jwks_url)
+    @jwks_cache ||= {}
+    return @jwks_cache[jwks_url] if @jwks_cache.key?(jwks_url)
+
+    require 'net/http'
+    require 'uri'
+    require 'json'
+
+    uri = URI.parse(jwks_url)
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = (uri.scheme == 'https')
+    http.open_timeout = 5
+    http.read_timeout = 5
+
+    request = Net::HTTP::Get.new(uri)
+    request['Accept'] = 'application/json'
+    response = http.request(request)
+
+    unless response.is_a?(Net::HTTPSuccess)
+      error = "#{response.code} #{response.message}".strip
+      raise IdTokenValidationError, l(:error_id_token_jwks_fetch, scope: :bless_this_redmine_sso, error: error)
+    end
+
+    begin
+      data = JSON.parse(response.body)
+    rescue JSON::ParserError => e
+      raise IdTokenValidationError, l(:error_id_token_jwks_invalid_json, scope: :bless_this_redmine_sso, error: e.message)
+    end
+
+    keys = data['keys']
+    unless keys.is_a?(Array) && keys.any?
+      raise IdTokenValidationError, l(:error_id_token_jwks_missing_keys, scope: :bless_this_redmine_sso)
+    end
+
+    @jwks_cache[jwks_url] = keys
+  rescue IdTokenValidationError
+    raise
+  rescue StandardError => e
+    raise IdTokenValidationError, l(:error_id_token_jwks_fetch, scope: :bless_this_redmine_sso, error: e.message)
   end
 
   def get_user_info(access_token)

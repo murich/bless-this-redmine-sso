@@ -2,6 +2,8 @@
 
 source 'https://rubygems.org'
 
+gem 'jwt'
+
 group :development, :test do
   gem 'rspec-rails'
 end

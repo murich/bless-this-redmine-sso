@@ -70,6 +70,24 @@
   </p>
 
   <p>
+    <%= content_tag 'label', l(:label_expected_issuer, scope: :bless_this_redmine_sso) + ':' %>
+    <%= text_field_tag 'settings[oauth_expected_issuer]', @settings['oauth_expected_issuer'], placeholder: l(:placeholder_expected_issuer, scope: :bless_this_redmine_sso) %>
+    <em><%= l(:hint_expected_issuer, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
+  <p>
+    <%= content_tag 'label', l(:label_expected_client_id, scope: :bless_this_redmine_sso) + ':' %>
+    <%= text_field_tag 'settings[oauth_expected_client_id]', @settings['oauth_expected_client_id'], placeholder: l(:placeholder_expected_client_id, scope: :bless_this_redmine_sso) %>
+    <em><%= l(:hint_expected_client_id, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
+  <p>
+    <%= content_tag 'label', l(:label_jwks_url, scope: :bless_this_redmine_sso) + ':' %>
+    <%= text_field_tag 'settings[oauth_jwks_url]', @settings['oauth_jwks_url'], placeholder: l(:placeholder_jwks_url, scope: :bless_this_redmine_sso) %>
+    <em><%= l(:hint_jwks_url, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
+  <p>
     <%= content_tag 'label', l(:label_use_pkce, scope: :bless_this_redmine_sso) %>
     <%= check_box_tag('settings[oauth_pkce]', '1', @settings['oauth_pkce']) %>
     <em><%= l(:hint_use_pkce, scope: :bless_this_redmine_sso) %></em>
@@ -176,8 +194,11 @@
     <ul>
       <li><strong><%= l(:label_authorize_url, scope: :bless_this_redmine_sso) %>:</strong> http://localhost:8082/login/oauth/authorize</li>
       <li><strong><%= l(:label_token_url, scope: :bless_this_redmine_sso) %>:</strong> http://casdoor_app:8000/api/login/oauth/access_token</li>
+      <li><strong><%= l(:label_expected_issuer, scope: :bless_this_redmine_sso) %>:</strong> http://casdoor_app:8000</li>
+      <li><strong><%= l(:label_jwks_url, scope: :bless_this_redmine_sso) %>:</strong> http://casdoor_app:8000/.well-known/jwks.json</li>
       <li><strong><%= l(:label_userinfo_url, scope: :bless_this_redmine_sso) %>:</strong> http://casdoor_app:8000/api/get-account</li>
       <li><strong><%= l(:label_logout_url, scope: :bless_this_redmine_sso) %>:</strong> http://casdoor_app:8000/logout</li>
+      <li><strong><%= l(:label_expected_client_id, scope: :bless_this_redmine_sso) %>:</strong> redmine-client-id</li>
       <li><strong><%= l(:label_scope, scope: :bless_this_redmine_sso) %>:</strong> openid email profile</li>
     </ul>
 
@@ -185,8 +206,11 @@
     <ul>
       <li><strong><%= l(:label_authorize_url, scope: :bless_this_redmine_sso) %>:</strong> https://accounts.google.com/o/oauth2/v2/auth</li>
       <li><strong><%= l(:label_token_url, scope: :bless_this_redmine_sso) %>:</strong> https://oauth2.googleapis.com/token</li>
+      <li><strong><%= l(:label_expected_issuer, scope: :bless_this_redmine_sso) %>:</strong> https://accounts.google.com</li>
+      <li><strong><%= l(:label_jwks_url, scope: :bless_this_redmine_sso) %>:</strong> https://www.googleapis.com/oauth2/v3/certs</li>
       <li><strong><%= l(:label_userinfo_url, scope: :bless_this_redmine_sso) %>:</strong> https://www.googleapis.com/oauth2/v2/userinfo</li>
       <li><strong><%= l(:label_logout_url, scope: :bless_this_redmine_sso) %>:</strong> https://accounts.google.com/logout</li>
+      <li><strong><%= l(:label_expected_client_id, scope: :bless_this_redmine_sso) %>:</strong> your-google-client-id</li>
       <li><strong><%= l(:label_scope, scope: :bless_this_redmine_sso) %>:</strong> openid email profile</li>
     </ul>
 
@@ -194,8 +218,11 @@
     <ul>
       <li><strong><%= l(:label_authorize_url, scope: :bless_this_redmine_sso) %>:</strong> https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize</li>
       <li><strong><%= l(:label_token_url, scope: :bless_this_redmine_sso) %>:</strong> https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token</li>
+      <li><strong><%= l(:label_expected_issuer, scope: :bless_this_redmine_sso) %>:</strong> https://login.microsoftonline.com/{tenant}/v2.0</li>
+      <li><strong><%= l(:label_jwks_url, scope: :bless_this_redmine_sso) %>:</strong> https://login.microsoftonline.com/{tenant}/discovery/v2.0/keys</li>
       <li><strong><%= l(:label_userinfo_url, scope: :bless_this_redmine_sso) %>:</strong> https://graph.microsoft.com/v1.0/me</li>
       <li><strong><%= l(:label_logout_url, scope: :bless_this_redmine_sso) %>:</strong> https://login.microsoftonline.com/{tenant}/oauth2/v2.0/logout</li>
+      <li><strong><%= l(:label_expected_client_id, scope: :bless_this_redmine_sso) %>:</strong> your-azure-client-id</li>
       <li><strong><%= l(:label_scope, scope: :bless_this_redmine_sso) %>:</strong> openid email profile User.Read</li>
     </ul>
   </div>
