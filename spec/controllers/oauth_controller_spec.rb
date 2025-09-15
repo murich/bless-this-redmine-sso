@@ -1,10 +1,13 @@
 # frozen_string_literal: true
 
 require_relative '../rails_helper'
+require_relative '../../lib/bless_this_redmine_sso/discovery'
 require 'securerandom'
 require 'jwt'
 require 'openssl'
-require_relative '../../lib/bless_this_redmine_sso/discovery'
+require 'base64'
+require 'digest'
+require 'json'
 
 if defined?(OauthController) && defined?(Setting)
   RSpec.describe OauthController, type: :controller do
@@ -164,7 +167,7 @@ if defined?(OauthController) && defined?(Setting)
     end
 
     describe '#exchange_code_for_token timeouts' do
-      it 'returns nil and logs error on timeout' do
+      it 'returns nil and logs error on open timeout' do
         Setting.plugin_bless_this_redmine_sso = {
           'oauth_client_id' => 'cid',
           'oauth_client_secret' => 'secret',
@@ -183,6 +186,34 @@ if defined?(OauthController) && defined?(Setting)
         allow(request).to receive(:[]=)
 
         allow(http).to receive(:request).and_raise(Net::OpenTimeout)
+
+        logger = double('logger', error: nil)
+        allow(Rails).to receive(:logger).and_return(logger)
+        expect(logger).to receive(:error).with(/Token exchange timeout/)
+
+        result = controller.send(:exchange_code_for_token, 'code')
+        expect(result).to be_nil
+      end
+
+      it 'returns nil and logs error on read timeout' do
+        Setting.plugin_bless_this_redmine_sso = {
+          'oauth_client_id' => 'cid',
+          'oauth_client_secret' => 'secret',
+          'oauth_token_url' => 'https://example.com/token',
+          'oauth_redirect_uri' => 'http://test.host/oauth/callback'
+        }
+
+        http = instance_double(Net::HTTP)
+        allow(Net::HTTP).to receive(:new).and_return(http)
+        allow(http).to receive(:use_ssl=)
+        allow(http).to receive(:open_timeout=)
+        allow(http).to receive(:read_timeout=)
+
+        request = instance_double(Net::HTTP::Post, set_form_data: nil)
+        allow(Net::HTTP::Post).to receive(:new).and_return(request)
+        allow(request).to receive(:[]=)
+
+        allow(http).to receive(:request).and_raise(Net::ReadTimeout)
 
         logger = double('logger', error: nil)
         allow(Rails).to receive(:logger).and_return(logger)
@@ -246,6 +277,267 @@ if defined?(OauthController) && defined?(Setting)
 
         expect(result['id_token']).to eq('jwt-token')
         expect(session[:oauth_id_token]).to eq('jwt-token')
+      end
+
+      it 'logs an error and returns nil when the response is unsuccessful' do
+        Setting.plugin_bless_this_redmine_sso = {
+          'oauth_token_url' => 'https://example.com/token',
+          'oauth_client_id' => 'cid',
+          'oauth_client_secret' => 'secret',
+          'oauth_redirect_uri' => 'http://test.host/oauth/callback'
+        }
+        allow(@http).to receive(:request).and_return(double(code: '500', body: 'boom'))
+        session[:oauth_id_token] = 'stale-token'
+
+        logger = double('logger', error: nil)
+        allow(Rails).to receive(:logger).and_return(logger)
+        expect(logger).to receive(:error).with(/Token exchange failed: boom/)
+
+        result = controller.send(:exchange_code_for_token, 'abc')
+
+        expect(result).to be_nil
+        expect(session[:oauth_id_token]).to be_nil
+      end
+
+      it 'logs an error and returns nil when parsing the response fails' do
+        Setting.plugin_bless_this_redmine_sso = {
+          'oauth_token_url' => 'https://example.com/token',
+          'oauth_client_id' => 'cid',
+          'oauth_client_secret' => 'secret',
+          'oauth_redirect_uri' => 'http://test.host/oauth/callback'
+        }
+        allow(@http).to receive(:request).and_return(double(code: '200', body: '{'))
+
+        logger = double('logger', error: nil)
+        allow(Rails).to receive(:logger).and_return(logger)
+        expect(logger).to receive(:error).with(/Token exchange error: /)
+
+        result = controller.send(:exchange_code_for_token, 'abc')
+
+        expect(result).to be_nil
+        expect(session[:oauth_id_token]).to be_nil
+      end
+    end
+
+    describe '#get_user_info' do
+      let(:http) { instance_double(Net::HTTP) }
+      let(:request) { instance_double(Net::HTTP::Get) }
+
+      before do
+        Setting.plugin_bless_this_redmine_sso = {
+          'oauth_userinfo_url' => 'https://example.com/userinfo'
+        }
+
+        allow(Net::HTTP).to receive(:new).and_return(http)
+        allow(Net::HTTP::Get).to receive(:new).and_return(request)
+        allow(http).to receive(:use_ssl=)
+        allow(http).to receive(:open_timeout=)
+        allow(http).to receive(:read_timeout=)
+      end
+
+      it 'returns parsed user info on success' do
+        headers = {}
+        allow(request).to receive(:[]=) { |key, value| headers[key] = value }
+        allow(http).to receive(:request).and_return(double(code: '200', body: '{"email":"user@example.com"}'))
+
+        result = controller.send(:get_user_info, 'access-token')
+
+        expect(result['email']).to eq('user@example.com')
+        expect(headers['Authorization']).to eq('Bearer access-token')
+        expect(headers['Accept']).to eq('application/json')
+      end
+
+      it 'logs an error and returns nil when the response is unsuccessful' do
+        allow(request).to receive(:[]=)
+        allow(http).to receive(:request).and_return(double(code: '401', body: 'unauthorized'))
+
+        logger = double('logger', error: nil)
+        allow(Rails).to receive(:logger).and_return(logger)
+        expect(logger).to receive(:error).with(/Get user info failed: unauthorized/)
+
+        result = controller.send(:get_user_info, 'access-token')
+
+        expect(result).to be_nil
+      end
+
+      it 'logs an error and returns nil when parsing the response fails' do
+        allow(request).to receive(:[]=)
+        allow(http).to receive(:request).and_return(double(code: '200', body: '{'))
+
+        logger = double('logger', error: nil)
+        allow(Rails).to receive(:logger).and_return(logger)
+        expect(logger).to receive(:error).with(/Get user info error: /)
+
+        result = controller.send(:get_user_info, 'access-token')
+
+        expect(result).to be_nil
+      end
+
+      it 'logs an error and returns nil when a timeout occurs' do
+        allow(request).to receive(:[]=)
+        allow(http).to receive(:request).and_raise(Net::ReadTimeout)
+
+        logger = double('logger', error: nil)
+        allow(Rails).to receive(:logger).and_return(logger)
+        expect(logger).to receive(:error).with(/Get user info timeout/)
+
+        result = controller.send(:get_user_info, 'access-token')
+
+        expect(result).to be_nil
+      end
+    end
+
+    describe 'OAuth integration flow' do
+      let(:client_id) { 'cid-123' }
+      let(:issuer) { 'https://issuer.example' }
+      let(:secret) { 'super-secret' }
+      let(:authorize_url) { 'https://example.com/authorize' }
+      let(:token_url) { 'https://example.com/token' }
+      let(:userinfo_url) { 'https://example.com/userinfo' }
+      let(:logger) { double('logger', info: nil, error: nil) }
+
+      before do
+        Setting.plugin_bless_this_redmine_sso = {
+          'oauth_enabled' => '1',
+          'oauth_authorize_url' => authorize_url,
+          'oauth_client_id' => client_id,
+          'oauth_client_secret' => secret,
+          'oauth_token_url' => token_url,
+          'oauth_userinfo_url' => userinfo_url,
+          'oauth_redirect_uri' => 'http://test.host/oauth/callback',
+          'oauth_scope' => 'openid profile email',
+          'oauth_pkce' => '1',
+          'oauth_expected_issuer' => issuer,
+          'oauth_expected_client_id' => client_id
+        }
+
+        allow(Rails).to receive(:logger).and_return(logger)
+      end
+
+      it 'completes the OAuth flow with PKCE and a valid id_token' do
+        captured_form_params = {}
+        headers = {}
+        http_token = instance_double(Net::HTTP)
+        http_userinfo = instance_double(Net::HTTP)
+        allow(Net::HTTP).to receive(:new).and_return(http_token, http_userinfo)
+
+        [http_token, http_userinfo].each do |http|
+          allow(http).to receive(:use_ssl=)
+          allow(http).to receive(:open_timeout=)
+          allow(http).to receive(:read_timeout=)
+        end
+
+        post_request = instance_double(Net::HTTP::Post)
+        allow(Net::HTTP::Post).to receive(:new).and_return(post_request)
+        allow(post_request).to receive(:[]=)
+        allow(post_request).to receive(:set_form_data) { |params| captured_form_params = params }
+
+        id_token_payload = {
+          'iss' => issuer,
+          'aud' => client_id,
+          'sub' => 'user-123',
+          'exp' => (Time.now + 3600).to_i,
+          'iat' => Time.now.to_i
+        }
+        id_token = JWT.encode(id_token_payload, secret, 'HS256')
+        token_response = instance_double(
+          Net::HTTPResponse,
+          code: '200',
+          body: JSON.generate('access_token' => 'access-token', 'id_token' => id_token)
+        )
+        allow(http_token).to receive(:request).and_return(token_response)
+
+        get_request = instance_double(Net::HTTP::Get)
+        allow(Net::HTTP::Get).to receive(:new).and_return(get_request)
+        allow(get_request).to receive(:[]=) { |key, value| headers[key] = value }
+
+        userinfo_body = JSON.generate('sub' => 'user-123', 'email' => 'user@example.com', 'name' => 'User Example')
+        userinfo_response = instance_double(Net::HTTPResponse, code: '200', body: userinfo_body)
+        allow(http_userinfo).to receive(:request).and_return(userinfo_response)
+
+        errors = double('errors', any?: false, full_messages: [])
+        user = double('User', errors: errors, active?: true, save!: true, login: 'user-123', id: 42)
+        allow(user).to receive(:last_login_on=)
+        captured_logged_user = nil
+        allow(controller).to receive(:logged_user=) { |value| captured_logged_user = value }
+
+        get :authorize
+        authorize_location = response.location
+        state = session[:oauth_state]
+        code_verifier = session[:oauth_code_verifier]
+
+        expect(state).to be_present
+        expect(code_verifier).to be_present
+
+        expected_challenge = Base64.urlsafe_encode64(Digest::SHA256.digest(code_verifier)).delete('=')
+        expect(authorize_location).to include("code_challenge=#{expected_challenge}")
+        expect(authorize_location).to include('code_challenge_method=S256')
+
+        expect(controller).to receive(:verify_id_token).and_call_original
+        expect(controller).to receive(:find_or_create_user)
+          .with(hash_including('sub' => 'user-123', 'email' => 'user@example.com'))
+          .and_return(user)
+
+        get :callback, params: { state: state, code: 'auth-code' }
+
+        expect(response).to redirect_to(my_page_path)
+        expect(session[:oauth_logged_in]).to be true
+        expect(session[:oauth_state]).to be_nil
+        expect(session[:oauth_code_verifier]).to be_nil
+        expect(session[:oauth_id_token]).to eq(id_token)
+        expect(captured_logged_user).to eq(user)
+        expect(captured_form_params['code_verifier']).to eq(code_verifier)
+        expect(headers['Authorization']).to eq('Bearer access-token')
+        expect(headers['Accept']).to eq('application/json')
+      end
+
+      it 'aborts the OAuth flow when id_token validation fails' do
+        captured_form_params = {}
+        http_token = instance_double(Net::HTTP)
+        allow(Net::HTTP).to receive(:new).and_return(http_token)
+        allow(http_token).to receive(:use_ssl=)
+        allow(http_token).to receive(:open_timeout=)
+        allow(http_token).to receive(:read_timeout=)
+
+        post_request = instance_double(Net::HTTP::Post)
+        allow(Net::HTTP::Post).to receive(:new).and_return(post_request)
+        allow(post_request).to receive(:[]=)
+        allow(post_request).to receive(:set_form_data) { |params| captured_form_params = params }
+
+        invalid_token_payload = {
+          'iss' => issuer,
+          'aud' => client_id,
+          'sub' => 'user-123',
+          'exp' => (Time.now + 3600).to_i,
+          'iat' => Time.now.to_i
+        }
+        invalid_token = JWT.encode(invalid_token_payload, 'other-secret', 'HS256')
+        token_response = instance_double(
+          Net::HTTPResponse,
+          code: '200',
+          body: JSON.generate('access_token' => 'access-token', 'id_token' => invalid_token)
+        )
+        allow(http_token).to receive(:request).and_return(token_response)
+
+        allow(controller).to receive(:logged_user=)
+
+        get :authorize
+        state = session[:oauth_state]
+        code_verifier = session[:oauth_code_verifier]
+
+        expect(state).to be_present
+        expect(code_verifier).to be_present
+
+        expect(controller).to receive(:verify_id_token).and_call_original
+        expect(controller).not_to receive(:find_or_create_user)
+        expect(logger).to receive(:error).with(/ID token validation failed:/)
+
+        get :callback, params: { state: state, code: 'auth-code' }
+
+        expect(response).to redirect_to(signin_path)
+        expect(session[:oauth_logged_in]).not_to be true
+        expect(session[:oauth_id_token]).to be_nil
+        expect(captured_form_params['code_verifier']).to eq(code_verifier)
       end
     end
 

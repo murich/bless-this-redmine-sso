@@ -9,6 +9,8 @@
 - Adapted and extended by Jan Catrysse  
   Copyright (c) 2025 Jan Catrysse
 - Licensed under the MIT License (see LICENSE file for details).
+- **BETA RELEASE:** due to the extensive refactoring this version still needs further testing.
+   Don't use in production.
 
 ### Security
 - Reactivate Redmine's authenticity_token protection.
@@ -39,3 +41,4 @@
 
 ### Fixes
 - Consistent boolean parsing (`1/true`).
+- Minor fixes, updates and refactoring
