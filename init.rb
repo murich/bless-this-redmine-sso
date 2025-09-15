@@ -20,6 +20,7 @@ Redmine::Plugin.register :bless_this_redmine_sso do
     'oauth_scope' => 'openid email profile User.Read',
     'oauth_redirect_uri' => '',
     'oauth_logout_url' => '',
+    'oauth_pkce' => false,
     'oauth_bypass_twofa' => true,
     'oauth_mapping_preset' => 'generic',
     'oauth_login_field' => 'name,preferred_username,sub,login,userPrincipalName',

@@ -79,6 +79,7 @@ namespace :redmine do
       update_existing = ENV['OAUTH_UPDATE_EXISTING'] || '1'
       match_by_email = ENV['OAUTH_MATCH_BY_EMAIL'] || '0'
       bypass_twofa = ENV['OAUTH_BYPASS_TWOFA'] || '1'
+      pkce = ENV['OAUTH_PKCE'] || '0'
 
       preset = ENV['OAUTH_FIELD_PRESET'] || 'generic'
       preset_map = mapping_presets[preset] || mapping_presets['generic']
@@ -110,6 +111,7 @@ namespace :redmine do
         'oauth_update_existing' => update_existing,
         'oauth_match_by_email' => match_by_email,
         'oauth_bypass_twofa' => bypass_twofa,
+        'oauth_pkce' => pkce,
         'oauth_default_groups' => default_groups
       }
       
@@ -137,6 +139,7 @@ namespace :redmine do
       puts "  Update Existing Users: #{setting_enabled?(update_existing) ? 'Enabled' : 'Disabled'}"
       puts "  Match Users by Email: #{setting_enabled?(match_by_email) ? 'Enabled' : 'Disabled'}"
       puts "  Bypass Redmine MFA: #{setting_enabled?(bypass_twofa) ? 'Enabled' : 'Disabled'}"
+      puts "  Use PKCE: #{setting_enabled?(pkce) ? 'Enabled' : 'Disabled'}"
       puts "  Default Groups: #{default_groups.blank? ? 'None' : default_groups}"
       puts ""
       puts "OAuth SSO is now enabled. Test at: /oauth/authorize"
@@ -267,6 +270,34 @@ namespace :redmine do
       Rake::Task['redmine:bless_this_sso:status'].invoke
     end
 
+    desc "Enable PKCE (code challenge)"
+    task :enable_pkce => :environment do
+      puts "Enabling PKCE..."
+
+      current_settings = plugin_settings
+      current_settings['oauth_pkce'] = '1'
+      Setting.plugin_bless_this_redmine_sso = current_settings
+      Setting.clear_cache
+
+      puts "✓ PKCE enabled"
+      Rake::Task['redmine:bless_this_sso:status'].reenable
+      Rake::Task['redmine:bless_this_sso:status'].invoke
+    end
+
+    desc "Disable PKCE"
+    task :disable_pkce => :environment do
+      puts "Disabling PKCE..."
+
+      current_settings = plugin_settings
+      current_settings.delete('oauth_pkce')
+      Setting.plugin_bless_this_redmine_sso = current_settings
+      Setting.clear_cache
+
+      puts "✓ PKCE disabled"
+      Rake::Task['redmine:bless_this_sso:status'].reenable
+      Rake::Task['redmine:bless_this_sso:status'].invoke
+    end
+
     desc "Show current OAuth SSO configuration"
     task :status => :environment do
       puts "OAuth SSO Plugin Status"
@@ -286,6 +317,7 @@ namespace :redmine do
       update_existing = setting_enabled?(settings['oauth_update_existing'])
       match_by_email = setting_enabled?(settings['oauth_match_by_email'])
       bypass_twofa = setting_enabled?(settings['oauth_bypass_twofa'])
+      pkce = setting_enabled?(settings['oauth_pkce'])
 
       puts "Status: #{enabled ? '✓ Enabled' : '❌ Disabled'}"
       puts "SSO-Only Mode: #{sso_only ? '✓ Enabled' : '❌ Disabled'}"
@@ -293,6 +325,7 @@ namespace :redmine do
       puts "Update Existing Users: #{update_existing ? '✓ Enabled' : '❌ Disabled'}"
       puts "Match Users by Email: #{match_by_email ? '✓ Enabled' : '❌ Disabled'}"
       puts "Bypass Redmine MFA: #{bypass_twofa ? '✓ Enabled' : '❌ Disabled'}"
+      puts "Use PKCE: #{pkce ? '✓ Enabled' : '❌ Disabled'}"
       puts "Default Groups: #{settings['oauth_default_groups'].blank? ? 'None' : settings['oauth_default_groups']}"
       puts ""
       puts "Configuration:"
@@ -513,6 +546,8 @@ namespace :redmine do
       puts "  rake redmine:bless_this_sso:disable_match_by_email - Do not match by email"
       puts "  rake redmine:bless_this_sso:enable_bypass_twofa   - Skip Redmine MFA activation"
       puts "  rake redmine:bless_this_sso:disable_bypass_twofa  - Require Redmine MFA activation"
+      puts "  rake redmine:bless_this_sso:enable_pkce         - Use PKCE code challenge"
+      puts "  rake redmine:bless_this_sso:disable_pkce        - Do not use PKCE"
       puts "  rake redmine:bless_this_sso:reset                 - Reset configuration"
       puts ""
       puts "Environment variables for configuration:"
@@ -534,6 +569,7 @@ namespace :redmine do
       puts "  OAUTH_UPDATE_EXISTING   - Update existing users (1 or 0)"
       puts "  OAUTH_MATCH_BY_EMAIL    - Match users by email when logins differ (1 or 0)"
       puts "  OAUTH_BYPASS_TWOFA      - Skip Redmine two-factor activation (1 or 0)"
+      puts "  OAUTH_PKCE              - Use PKCE code challenge (1 or 0)"
       puts "  OAUTH_DEFAULT_GROUPS    - Default group IDs for new users"
       puts ""
       puts "Example for Casdoor:"

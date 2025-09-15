@@ -120,6 +120,7 @@ Additional provisioning options:
 - `OAUTH_UPDATE_EXISTING` – set to `0` to keep existing user details (including custom fields) unchanged
 - `OAUTH_MATCH_BY_EMAIL` – set to `1` to associate users by email when logins differ
 - `OAUTH_BYPASS_TWOFA` – set to `0` to require Redmine MFA activation after SSO
+- `OAUTH_PKCE` – set to `1` to enable PKCE code challenge and verifier
 - `OAUTH_DEFAULT_GROUPS` – comma-separated group IDs assigned to new users
 
 ## Supported Providers

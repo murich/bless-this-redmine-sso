@@ -31,6 +31,8 @@ nl:
     label_scope: "Scope"
     placeholder_scope: "openid email profile"
     hint_scope: "OAuth-scopes die worden aangevraagd (gescheiden door spaties)"
+    label_use_pkce: "Use PKCE"
+    hint_use_pkce: "Add code challenge and verifier for enhanced security"
     label_redirect_uri: "Redirect URI"
     placeholder_redirect_uri: "Laat leeg om automatisch te genereren"
     hint_redirect_uri: "OAuth callback-URL (laat leeg om: %{url} te gebruiken)"

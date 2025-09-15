@@ -31,6 +31,8 @@ it:
     label_scope: "Scope"
     placeholder_scope: "openid email profile"
     hint_scope: "Scope OAuth richiesti (separati da spazi)"
+    label_use_pkce: "Use PKCE"
+    hint_use_pkce: "Add code challenge and verifier for enhanced security"
     label_redirect_uri: "URI di redirect"
     placeholder_redirect_uri: "Lascia vuoto per generare automaticamente"
     hint_redirect_uri: "URL di callback OAuth (lascia vuoto per usare: %{url})"

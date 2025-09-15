@@ -1,6 +1,8 @@
 require 'json'
 require 'securerandom'
 require 'uri'
+require 'base64'
+require 'digest'
 
 class OauthController < ApplicationController
   # Allow OAuth endpoints to be accessed without prior Redmine login
@@ -24,7 +26,14 @@ class OauthController < ApplicationController
     # Generate state parameter for security
     state = SecureRandom.hex(16)
     session[:oauth_state] = state
-    
+
+    pkce_enabled = %w[1 true].include?(settings['oauth_pkce'].to_s.downcase)
+    if pkce_enabled
+      code_verifier = SecureRandom.urlsafe_base64(32)
+      session[:oauth_code_verifier] = code_verifier
+      code_challenge = Base64.urlsafe_encode64(Digest::SHA256.digest(code_verifier)).delete('=')
+    end
+
     params = {
       client_id: client_id,
       redirect_uri: redirect_uri,
@@ -33,8 +42,13 @@ class OauthController < ApplicationController
       state: state
     }
 
+    if pkce_enabled
+      params[:code_challenge] = code_challenge
+      params[:code_challenge_method] = 'S256'
+    end
+
     auth_url = "#{authorize_url}?#{URI.encode_www_form(params)}"
-    
+
     redirect_to auth_url
   end
   
@@ -139,6 +153,10 @@ class OauthController < ApplicationController
       'code' => code,
       'redirect_uri' => redirect_uri
     }
+
+    pkce_enabled = %w[1 true].include?(settings['oauth_pkce'].to_s.downcase)
+    code_verifier = session.delete(:oauth_code_verifier)
+    params['code_verifier'] = code_verifier if pkce_enabled && code_verifier
 
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = (uri.scheme == 'https')

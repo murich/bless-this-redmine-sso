@@ -27,13 +27,39 @@ if defined?(OauthController) && defined?(Setting)
             'oauth_scope' => 'openid',
             'oauth_client_secret' => 'secret',
             'oauth_token_url' => 'https://example.com/token',
-            'oauth_userinfo_url' => 'https://example.com/userinfo'
+            'oauth_userinfo_url' => 'https://example.com/userinfo',
+            'oauth_pkce' => '0'
           }
         end
 
-        it 'redirects to the provider' do
+        it 'redirects to the provider without PKCE params' do
           get :authorize
           expect(response.location).to include('example.com/authorize')
+          expect(response.location).not_to include('code_challenge')
+          expect(session[:oauth_code_verifier]).to be_nil
+        end
+      end
+
+      context 'when PKCE is enabled' do
+        before do
+          Setting.plugin_bless_this_redmine_sso = {
+            'oauth_enabled' => '1',
+            'oauth_authorize_url' => 'https://example.com/authorize',
+            'oauth_client_id' => 'cid',
+            'oauth_redirect_uri' => 'http://test.host/oauth/callback',
+            'oauth_scope' => 'openid',
+            'oauth_client_secret' => 'secret',
+            'oauth_token_url' => 'https://example.com/token',
+            'oauth_userinfo_url' => 'https://example.com/userinfo',
+            'oauth_pkce' => '1'
+          }
+        end
+
+        it 'stores verifier and includes PKCE params' do
+          get :authorize
+          expect(response.location).to include('code_challenge=')
+          expect(response.location).to include('code_challenge_method=S256')
+          expect(session[:oauth_code_verifier]).to be_present
         end
       end
 
@@ -113,6 +139,47 @@ if defined?(OauthController) && defined?(Setting)
 
         result = controller.send(:exchange_code_for_token, 'code')
         expect(result).to be_nil
+      end
+    end
+
+    describe '#exchange_code_for_token' do
+      before do
+        @form_params = {}
+        http = double('http')
+        allow(Net::HTTP).to receive(:new).and_return(http)
+        allow(http).to receive(:use_ssl=)
+        allow(http).to receive(:open_timeout=)
+        allow(http).to receive(:read_timeout=)
+        allow(http).to receive(:request).and_return(double(code: '200', body: '{}'))
+        request = double('request')
+        allow(Net::HTTP::Post).to receive(:new).and_return(request)
+        allow(request).to receive(:[]=)
+        allow(request).to receive(:set_form_data) { |p| @form_params = p }
+      end
+
+      it 'omits code_verifier when PKCE disabled' do
+        Setting.plugin_bless_this_redmine_sso = {
+          'oauth_token_url' => 'https://example.com/token',
+          'oauth_client_id' => 'cid',
+          'oauth_client_secret' => 'secret',
+          'oauth_redirect_uri' => 'http://test.host/oauth/callback',
+          'oauth_pkce' => '0'
+        }
+        controller.send(:exchange_code_for_token, 'abc')
+        expect(@form_params).not_to include('code_verifier')
+      end
+
+      it 'sends code_verifier when PKCE enabled' do
+        Setting.plugin_bless_this_redmine_sso = {
+          'oauth_token_url' => 'https://example.com/token',
+          'oauth_client_id' => 'cid',
+          'oauth_client_secret' => 'secret',
+          'oauth_redirect_uri' => 'http://test.host/oauth/callback',
+          'oauth_pkce' => '1'
+        }
+        session[:oauth_code_verifier] = 'verifier'
+        controller.send(:exchange_code_for_token, 'abc')
+        expect(@form_params).to include('code_verifier' => 'verifier')
       end
     end
 

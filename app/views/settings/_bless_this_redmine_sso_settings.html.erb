@@ -70,6 +70,12 @@
   </p>
 
   <p>
+    <%= content_tag 'label', l(:label_use_pkce, scope: :bless_this_redmine_sso) %>
+    <%= check_box_tag('settings[oauth_pkce]', '1', @settings['oauth_pkce']) %>
+    <em><%= l(:hint_use_pkce, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
+  <p>
     <%= content_tag 'label', l(:label_redirect_uri, scope: :bless_this_redmine_sso) + ':' %>
     <%= text_field_tag 'settings[oauth_redirect_uri]', @settings['oauth_redirect_uri'], placeholder: l(:placeholder_redirect_uri, scope: :bless_this_redmine_sso) %>
     <em><%= l(:hint_redirect_uri, scope: :bless_this_redmine_sso, url: "#{request.base_url}/oauth/callback") %></em>
