@@ -172,6 +172,19 @@
     <em><%= l(:hint_login_field, scope: :bless_this_redmine_sso) %></em>
   </p>
 
+  <% case_insensitive_value = @settings.key?('oauth_case_insensitive_login') ? @settings['oauth_case_insensitive_login'] : true %>
+  <% case_insensitive_checked = if case_insensitive_value == true || case_insensitive_value == false
+                                  case_insensitive_value
+                                else
+                                  %w[1 true yes on].include?(case_insensitive_value.to_s.downcase)
+                                end %>
+  <p>
+    <%= hidden_field_tag 'settings[oauth_case_insensitive_login]', '0' %>
+    <%= content_tag 'label', l(:label_case_insensitive_login, scope: :bless_this_redmine_sso) %>
+    <%= check_box_tag('settings[oauth_case_insensitive_login]', '1', case_insensitive_checked) %>
+    <em><%= l(:hint_case_insensitive_login, scope: :bless_this_redmine_sso) %></em>
+  </p>
+
   <p>
     <%= content_tag 'label', l(:label_email_field, scope: :bless_this_redmine_sso) + ':' %>
     <%= text_field_tag 'settings[oauth_email_field]', @settings['oauth_email_field'], placeholder: l(:placeholder_email_field, scope: :bless_this_redmine_sso), size: 70 %>

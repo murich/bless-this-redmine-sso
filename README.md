@@ -59,6 +59,7 @@ A comprehensive OAuth/OpenID Connect SSO plugin for Redmine that supports any OA
     - **Auto-create Users**: Automatically create Redmine accounts for new OAuth logins
     - **Update Existing Users**: Synchronize name, email, and mapped custom fields on each OAuth login (enabled by default)
     - **Match Users by Email**: Allow linking to existing accounts when emails match but logins differ (disabled by default)
+    - **Case-insensitive Login Matching**: Treat OAuth usernames as matching existing logins even when casing differs (enabled by default; disable to require an exact match)
     - **Bypass Redmine MFA**: Skip Redmine's MFA activation for SSO logins
     - **Default Group IDs**: Comma-separated list of group IDs added to new users
     - **Logout URL**: Optional provider logout endpoint to redirect users after Redmine logout
@@ -117,6 +118,7 @@ After configuration you can enable SSO-only mode or tweak behaviour with the man
 - `OAUTH_FIELD_PRESET` - mapping preset (`generic`, `microsoft`, `google`, `casdoor`).
 - `OAUTH_LOGIN_FIELD`, `OAUTH_EMAIL_FIELD`, `OAUTH_FIRSTNAME_FIELD`, `OAUTH_LASTNAME_FIELD` - override user attribute mappings.
 - `OAUTH_AUTO_CREATE`, `OAUTH_UPDATE_EXISTING`, `OAUTH_MATCH_BY_EMAIL`, `OAUTH_BYPASS_TWOFA`, `OAUTH_PKCE` - set to `1` or `0` to toggle provisioning options.
+- `OAUTH_CASE_INSENSITIVE_LOGIN` - set to `1` (default) or `0` to control case-insensitive login matching.
 - `OAUTH_DEFAULT_GROUPS` - comma-separated Redmine group IDs assigned to new users.
 - `OAUTH_REDIRECT_URI` - force a specific callback URL (leave blank to auto-generate).
 - `OAUTH_EXPECTED_ISSUER`, `OAUTH_EXPECTED_CLIENT_ID`, `OAUTH_JWKS_URL` - tighten ID token validation.
@@ -139,6 +141,8 @@ bundle exec rake redmine:bless_this_sso:disable_sso_only
 # Adjust account matching and MFA bypass
 bundle exec rake redmine:bless_this_sso:enable_match_by_email
 bundle exec rake redmine:bless_this_sso:disable_match_by_email
+bundle exec rake redmine:bless_this_sso:enable_case_insensitive_login
+bundle exec rake redmine:bless_this_sso:disable_case_insensitive_login
 bundle exec rake redmine:bless_this_sso:enable_bypass_twofa
 bundle exec rake redmine:bless_this_sso:disable_bypass_twofa
 

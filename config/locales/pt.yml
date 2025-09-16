@@ -78,6 +78,8 @@ pt:
     label_login_field: "Campo(s) de login"
     placeholder_login_field: "name,preferred_username,sub,login,userPrincipalName"
     hint_login_field: "Lista separada por vírgulas de chaves de informações do usuário para construir o login; usa-se o primeiro valor não vazio"
+    label_case_insensitive_login: "Correspondência de login sem diferenciar maiúsculas"
+    hint_case_insensitive_login: "Tratar logins OAuth como correspondentes às contas existentes do Redmine mesmo quando a capitalização for diferente"
     label_email_field: "Campo(s) de e-mail"
     placeholder_email_field: "email,mail,userPrincipalName"
     hint_email_field: "Lista separada por vírgulas de chaves para preencher o endereço de e-mail"

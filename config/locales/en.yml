@@ -78,6 +78,8 @@ en:
     label_login_field: "Login Field(s)"
     placeholder_login_field: "name,preferred_username,sub,login,userPrincipalName"
     hint_login_field: "Comma-separated list of user info keys checked in order to build the login; the first non-blank value is used"
+    label_case_insensitive_login: "Case-insensitive login matching"
+    hint_case_insensitive_login: "Treat OAuth logins as matching existing Redmine accounts even when casing differs"
     label_email_field: "Email Field(s)"
     placeholder_email_field: "email,mail,userPrincipalName"
     hint_email_field: "Comma-separated list of keys used to populate the email address"

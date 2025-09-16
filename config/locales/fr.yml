@@ -78,6 +78,8 @@ fr:
     label_login_field: "Champ(s) de connexion"
     placeholder_login_field: "name,preferred_username,sub,login,userPrincipalName"
     hint_login_field: "Liste de clés d’informations utilisateur, séparées par des virgules, pour construire la connexion ; la première valeur non vide est utilisée"
+    label_case_insensitive_login: "Correspondance de connexion insensible à la casse"
+    hint_case_insensitive_login: "Considérer les connexions OAuth comme correspondant aux comptes Redmine existants même si la casse diffère"
     label_email_field: "Champ(s) d’e-mail"
     placeholder_email_field: "email,mail,userPrincipalName"
     hint_email_field: "Liste de clés pour remplir l’adresse e-mail"

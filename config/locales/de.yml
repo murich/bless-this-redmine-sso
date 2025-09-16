@@ -78,6 +78,8 @@ de:
     label_login_field: "Login-Feld(er)"
     placeholder_login_field: "name,preferred_username,sub,login,userPrincipalName"
     hint_login_field: "Kommagetrennte Liste von Benutzerinfo-Schlüsseln zur Erstellung des Logins; der erste nicht-leere Wert wird verwendet"
+    label_case_insensitive_login: "Login ohne Beachtung der Groß-/Kleinschreibung"
+    hint_case_insensitive_login: "OAuth-Anmeldungen auch dann als Treffer für bestehende Redmine-Konten behandeln, wenn sich die Groß-/Kleinschreibung unterscheidet"
     label_email_field: "E-Mail-Feld(er)"
     placeholder_email_field: "email,mail,userPrincipalName"
     hint_email_field: "Kommagetrennte Liste von Schlüsseln zum Befüllen der E-Mail-Adresse"

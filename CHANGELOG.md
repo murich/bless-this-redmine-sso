@@ -29,6 +29,7 @@
 - MFA bypass option for SSO logins.
 - Configurable login-or-email vs. login-only matching.
 - Email matching/updates now case-insensitive via `EmailAddress`.
+- Case-insensitive login matching to align with mixed-case SSO usernames, configurable via the admin UI and rake tasks.
 
 ### Localization & UI
 - Localized UI and flash messages; new locales (en, nl, fr, de, es, it, pt).
@@ -41,4 +42,4 @@
 
 ### Fixes
 - Consistent boolean parsing (`1/true`).
-- Minor fixes, updates and refactoring
+- Minor fixes, updates, and refactoring

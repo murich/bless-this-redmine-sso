@@ -78,6 +78,8 @@ nl:
     label_login_field: "Loginveld(en)"
     placeholder_login_field: "name,preferred_username,sub,login,userPrincipalName"
     hint_login_field: "Komma-gescheiden lijst van gebruikersinfovelden om de login op te bouwen; de eerste niet-lege waarde wordt gebruikt"
+    label_case_insensitive_login: "Login zonder hoofdlettergevoeligheid vergelijken"
+    hint_case_insensitive_login: "Beschouw OAuth-logins als overeenkomend met bestaande Redmine-accounts zelfs wanneer de hoofdletters verschillen"
     label_email_field: "E-mailveld(en)"
     placeholder_email_field: "email,mail,userPrincipalName"
     hint_email_field: "Komma-gescheiden lijst van sleutels om het e-mailadres te vullen"

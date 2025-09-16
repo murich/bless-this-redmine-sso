@@ -703,6 +703,97 @@ if defined?(OauthController) && defined?(Setting)
       end
     end
 
+    describe '#find_or_create_user login lookup' do
+      it 'matches existing users regardless of login case by default' do
+        unless defined?(User)
+          skip 'User not available'
+        end
+
+        login = "case_login_#{SecureRandom.hex(4)}@example.com"
+        user = User.new(
+          login: login,
+          firstname: 'Case',
+          lastname: 'Tester',
+          status: User::STATUS_ACTIVE
+        )
+        user.password = 'Passw0rd!'
+        user.password_confirmation = 'Passw0rd!'
+        user.mail = login
+        user.save!
+
+        Setting.plugin_bless_this_redmine_sso = {
+          'oauth_login_field' => 'login',
+          'oauth_firstname_field' => '',
+          'oauth_lastname_field' => ''
+        }
+
+        user_info = { 'login' => login.upcase }
+        result = controller.send(:find_or_create_user, user_info)
+
+        expect(result.id).to eq(user.id)
+      end
+
+      it 'requires exact casing when case-insensitive matching is disabled' do
+        unless defined?(User)
+          skip 'User not available'
+        end
+
+        login = "case_sensitive_#{SecureRandom.hex(4)}@example.com"
+        user = User.new(
+          login: login,
+          firstname: 'Case',
+          lastname: 'Strict',
+          status: User::STATUS_ACTIVE
+        )
+        user.password = 'Passw0rd!'
+        user.password_confirmation = 'Passw0rd!'
+        user.mail = login
+        user.save!
+
+        Setting.plugin_bless_this_redmine_sso = {
+          'oauth_login_field' => 'login',
+          'oauth_case_insensitive_login' => '0'
+        }
+
+        user_info = { 'login' => login.upcase }
+        result = controller.send(:find_or_create_user, user_info)
+
+        expect(result).to eq(:user_not_found)
+      end
+
+      it 'does not update login when case differs for existing user' do
+        unless defined?(User)
+          skip 'User not available'
+        end
+
+        login = "update_case_#{SecureRandom.hex(4)}@example.com"
+        user = User.new(
+          login: login,
+          firstname: 'Old',
+          lastname: 'Name',
+          status: User::STATUS_ACTIVE
+        )
+        user.password = 'Passw0rd!'
+        user.password_confirmation = 'Passw0rd!'
+        user.mail = login
+        user.save!
+
+        Setting.plugin_bless_this_redmine_sso = {
+          'oauth_login_field' => 'login',
+          'oauth_firstname_field' => 'firstname',
+          'oauth_update_existing' => '1',
+          'oauth_case_insensitive_login' => '1'
+        }
+
+        user_info = { 'login' => login.upcase, 'firstname' => 'New' }
+        result = controller.send(:find_or_create_user, user_info)
+
+        expect(result.id).to eq(user.id)
+        expect(result.reload.login).to eq(login)
+        expect(result.firstname).to eq('New')
+      end
+    end
+
     describe '#find_or_create_user email lookup' do
       it 'does not associate by email when login differs' do
         unless defined?(User)
@@ -778,7 +869,7 @@ if defined?(OauthController) && defined?(Setting)
 
         errors = double('errors', any?: true, full_messages: ['save failed'])
         allow(User).to receive(:find_by).and_call_original
-        allow(User).to receive(:find_by).with(login: login).and_return(user)
+        allow(User).to receive(:find_by).with('LOWER(login) = ?', login.downcase).and_return(user)
         allow(user).to receive(:save).and_return(false)
         allow(user).to receive(:errors).and_return(errors)
 

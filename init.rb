@@ -33,6 +33,7 @@ Redmine::Plugin.register :bless_this_redmine_sso do
     'oauth_auto_create' => true,
     'oauth_update_existing' => true,
     'oauth_match_by_email' => false,
+    'oauth_case_insensitive_login' => true,
     'oauth_default_groups' => ''
   }, :partial => 'settings/bless_this_redmine_sso_settings'
 

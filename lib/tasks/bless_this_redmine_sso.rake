@@ -126,6 +126,7 @@ namespace :redmine do
         'oauth_auto_create' => ENV['OAUTH_AUTO_CREATE'] || '1',
         'oauth_update_existing' => ENV['OAUTH_UPDATE_EXISTING'] || '1',
         'oauth_match_by_email' => ENV['OAUTH_MATCH_BY_EMAIL'] || '0',
+        'oauth_case_insensitive_login' => ENV['OAUTH_CASE_INSENSITIVE_LOGIN'] || '1',
         'oauth_bypass_twofa' => ENV['OAUTH_BYPASS_TWOFA'] || '1',
         'oauth_pkce' => ENV['OAUTH_PKCE'] || '0',
         'oauth_default_groups' => ENV['OAUTH_DEFAULT_GROUPS'] || '',
@@ -191,6 +192,12 @@ namespace :redmine do
       puts "  Redirect URI: #{settings['oauth_redirect_uri'].empty? ? 'Auto-generated' : settings['oauth_redirect_uri']}"
       puts "  Mapping Preset: #{settings['oauth_mapping_preset'] || 'custom'}"
       puts "  Login Field(s): #{settings['oauth_login_field']}"
+      case_insensitive = if settings.key?('oauth_case_insensitive_login')
+                           setting_enabled?(settings['oauth_case_insensitive_login'])
+                         else
+                           true
+                         end
+      puts "  Case-insensitive Login Matching: #{case_insensitive ? 'Enabled' : 'Disabled'}"
       puts "  Email Field(s): #{settings['oauth_email_field']}"
       puts "  First Name Field(s): #{settings['oauth_firstname_field']}"
       puts "  Last Name Field(s): #{settings['oauth_lastname_field']}"
@@ -302,6 +309,34 @@ namespace :redmine do
       Rake::Task['redmine:bless_this_sso:status'].invoke
     end
 
+    desc "Enable case-insensitive login matching"
+    task :enable_case_insensitive_login => :environment do
+      puts "Enabling case-insensitive login matching..."
+
+      current_settings = plugin_settings
+      current_settings['oauth_case_insensitive_login'] = '1'
+      Setting.plugin_bless_this_redmine_sso = current_settings
+      Setting.clear_cache
+
+      puts "✓ Case-insensitive login matching enabled"
+      Rake::Task['redmine:bless_this_sso:status'].reenable
+      Rake::Task['redmine:bless_this_sso:status'].invoke
+    end
+
+    desc "Disable case-insensitive login matching"
+    task :disable_case_insensitive_login => :environment do
+      puts "Disabling case-insensitive login matching..."
+
+      current_settings = plugin_settings
+      current_settings['oauth_case_insensitive_login'] = '0'
+      Setting.plugin_bless_this_redmine_sso = current_settings
+      Setting.clear_cache
+
+      puts "✓ Case-insensitive login matching disabled"
+      Rake::Task['redmine:bless_this_sso:status'].reenable
+      Rake::Task['redmine:bless_this_sso:status'].invoke
+    end
+
     desc "Enable bypass of Redmine two-factor activation"
     task :enable_bypass_twofa => :environment do
       puts "Enabling bypass of Redmine MFA..."
@@ -378,12 +413,18 @@ namespace :redmine do
       match_by_email = setting_enabled?(settings['oauth_match_by_email'])
       bypass_twofa = setting_enabled?(settings['oauth_bypass_twofa'])
       pkce = setting_enabled?(settings['oauth_pkce'])
+      case_insensitive = if settings.key?('oauth_case_insensitive_login')
+                           setting_enabled?(settings['oauth_case_insensitive_login'])
+                         else
+                           true
+                         end
 
       puts "Status: #{enabled ? '✓ Enabled' : '❌ Disabled'}"
       puts "SSO-Only Mode: #{sso_only ? '✓ Enabled' : '❌ Disabled'}"
       puts "Auto-create Users: #{auto_create ? '✓ Enabled' : '❌ Disabled'}"
       puts "Update Existing Users: #{update_existing ? '✓ Enabled' : '❌ Disabled'}"
       puts "Match Users by Email: #{match_by_email ? '✓ Enabled' : '❌ Disabled'}"
+      puts "Case-insensitive Login Matching: #{case_insensitive ? '✓ Enabled' : '❌ Disabled'}"
       puts "Bypass Redmine MFA: #{bypass_twofa ? '✓ Enabled' : '❌ Disabled'}"
       puts "Use PKCE: #{pkce ? '✓ Enabled' : '❌ Disabled'}"
       puts "Default Groups: #{settings['oauth_default_groups'].blank? ? 'None' : settings['oauth_default_groups']}"
@@ -602,18 +643,20 @@ namespace :redmine do
       puts "  rake redmine:bless_this_sso:validate_flow - Validate full OAuth flow"
       puts ""
       puts "Management tasks:"
-      puts "  rake redmine:bless_this_sso:status                 - Show current configuration"
-      puts "  rake redmine:bless_this_sso:enable                 - Enable OAuth SSO"
-      puts "  rake redmine:bless_this_sso:disable                - Disable OAuth SSO"
-      puts "  rake redmine:bless_this_sso:enable_sso_only        - Enable SSO-only mode"
-      puts "  rake redmine:bless_this_sso:disable_sso_only       - Disable SSO-only mode"
-      puts "  rake redmine:bless_this_sso:enable_match_by_email  - Match users by email"
-      puts "  rake redmine:bless_this_sso:disable_match_by_email - Do not match by email"
-      puts "  rake redmine:bless_this_sso:enable_bypass_twofa    - Skip Redmine MFA activation"
-      puts "  rake redmine:bless_this_sso:disable_bypass_twofa   - Require Redmine MFA activation"
-      puts "  rake redmine:bless_this_sso:enable_pkce            - Use PKCE code challenge"
-      puts "  rake redmine:bless_this_sso:disable_pkce           - Do not use PKCE"
-      puts "  rake redmine:bless_this_sso:reset                  - Reset configuration"
+      puts "  rake redmine:bless_this_sso:status                         - Show current configuration"
+      puts "  rake redmine:bless_this_sso:enable                         - Enable OAuth SSO"
+      puts "  rake redmine:bless_this_sso:disable                        - Disable OAuth SSO"
+      puts "  rake redmine:bless_this_sso:enable_sso_only                - Enable SSO-only mode"
+      puts "  rake redmine:bless_this_sso:disable_sso_only               - Disable SSO-only mode"
+      puts "  rake redmine:bless_this_sso:enable_match_by_email          - Match users by email"
+      puts "  rake redmine:bless_this_sso:disable_match_by_email         - Do not match by email"
+      puts "  rake redmine:bless_this_sso:enable_case_insensitive_login  - Ignore login casing when matching"
+      puts "  rake redmine:bless_this_sso:disable_case_insensitive_login - Require exact login casing"
+      puts "  rake redmine:bless_this_sso:enable_bypass_twofa            - Skip Redmine MFA activation"
+      puts "  rake redmine:bless_this_sso:disable_bypass_twofa           - Require Redmine MFA activation"
+      puts "  rake redmine:bless_this_sso:enable_pkce                    - Use PKCE code challenge"
+      puts "  rake redmine:bless_this_sso:disable_pkce                   - Do not use PKCE"
+      puts "  rake redmine:bless_this_sso:reset                          - Reset configuration"
       puts ""
       puts "Discovery shortcuts (used with :configure):"
       puts "  OAUTH_PROVIDER=google                                                     # Google Workspace defaults"
@@ -644,16 +687,17 @@ namespace :redmine do
       puts "  OAUTH_JWKS_URL                          - JWKS endpoint for RS256 verification"
       puts ""
       puts "Mapping and provisioning options:"
-      puts "  OAUTH_FIELD_PRESET          - Mapping preset (generic, microsoft, google, casdoor)"
-      puts "  OAUTH_LOGIN_FIELD           - Override login mapping"
-      puts "  OAUTH_EMAIL_FIELD           - Override email mapping"
-      puts "  OAUTH_FIRSTNAME_FIELD       - Override first name mapping"
-      puts "  OAUTH_LASTNAME_FIELD        - Override last name mapping"
-      puts "  OAUTH_AUTO_CREATE           - Auto-create users (1 or 0)"
-      puts "  OAUTH_UPDATE_EXISTING       - Update existing users (1 or 0)"
-      puts "  OAUTH_MATCH_BY_EMAIL        - Match users by email when logins differ (1 or 0)"
-      puts "  OAUTH_BYPASS_TWOFA          - Skip Redmine two-factor activation (1 or 0)"
-      puts "  OAUTH_PKCE                  - Use PKCE code challenge (1 or 0)"
+      puts "  OAUTH_FIELD_PRESET           - Mapping preset (generic, microsoft, google, casdoor)"
+      puts "  OAUTH_LOGIN_FIELD            - Override login mapping"
+      puts "  OAUTH_EMAIL_FIELD            - Override email mapping"
+      puts "  OAUTH_FIRSTNAME_FIELD        - Override first name mapping"
+      puts "  OAUTH_LASTNAME_FIELD         - Override last name mapping"
+      puts "  OAUTH_AUTO_CREATE            - Auto-create users (1 or 0)"
+      puts "  OAUTH_UPDATE_EXISTING        - Update existing users (1 or 0)"
+      puts "  OAUTH_MATCH_BY_EMAIL         - Match users by email when logins differ (1 or 0)"
+      puts "  OAUTH_CASE_INSENSITIVE_LOGIN - Ignore login casing when matching users (1 or 0)"
+      puts "  OAUTH_BYPASS_TWOFA           - Skip Redmine two-factor activation (1 or 0)"
+      puts "  OAUTH_PKCE                   - Use PKCE code challenge (1 or 0)"
       puts ""
       puts "Example:"
       puts "  bundle exec rake redmine:bless_this_sso:configure \\"
