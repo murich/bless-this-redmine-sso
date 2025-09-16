@@ -1,0 +1,8 @@
+#oauth-login {margin:5em auto 2em auto; padding:20px; width:340px; border:1px solid #FDBF3B; background-color:#FFEBC1; border-radius:4px; box-sizing: border-box;}
+#oauth-login label {display:block; margin-bottom:5px; font-weight:bold;}
+#oauth-login label[for=autologin] {font-weight:normal;}
+#oauth-login input {height: 29px;}
+#oauth-login input[type=text], #oauth-login input[type=password], #oauth-login input[type=submit] {display: block; width: 100%;}
+#oauth-login input[type=text], #oauth-login input[type=password] {margin-bottom: 15px;}
+#oauth-login a.lost_password {float:right; font-weight:normal;}
+#oauth-login h3 {text-align: center;}
