@@ -185,7 +185,11 @@ class OauthController < ApplicationController
       # Set a random password (user will use OAuth)
       user.password = SecureRandom.hex(20)
       user.password_confirmation = user.password
-      
+
+      # Prevent password change requirement for OAuth users
+      user.must_change_passwd = false
+      user.passwd_changed_on = Time.now
+
       if user.save
         Rails.logger.info "Created new user via OAuth: #{username}"
       else
@@ -207,7 +211,17 @@ class OauthController < ApplicationController
         user.mail = email
         updated = true
       end
-      
+
+      # Ensure existing OAuth users don't have password change requirement
+      if user.must_change_passwd
+        user.must_change_passwd = false
+        updated = true
+      end
+      if user.passwd_changed_on.nil?
+        user.passwd_changed_on = Time.now
+        updated = true
+      end
+
       user.save if updated
     end
 

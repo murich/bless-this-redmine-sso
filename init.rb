@@ -26,3 +26,15 @@ end
 
 require_relative 'lib/bless_this_redmine_sso/hooks'
 require_relative 'lib/bless_this_redmine_sso/patches/account_controller_patch'
+require_relative 'lib/bless_this_redmine_sso/patches/user_patch'
+require_relative 'lib/bless_this_redmine_sso/patches/my_controller_patch'
+
+# Apply patches immediately after plugin loads
+ActiveSupport.on_load(:action_controller) do
+  require 'my_controller'
+end
+
+# Force patch application after controllers are loaded
+Rails.application.config.after_initialize do
+  MyController.prepend BlessThisRedmineSso::Patches::MyControllerPatch unless MyController.ancestors.include?(BlessThisRedmineSso::Patches::MyControllerPatch)
+end
