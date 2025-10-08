@@ -2,11 +2,12 @@ module BlessThisRedmineSso
   module Patches
     module UserPatch
       def is_oauth_user?
-        # OAuth users are identified by:
-        # 1. Having passwd_changed_on set (we set this during OAuth login)
-        # 2. Not having must_change_passwd flag (we clear this for OAuth users)
-        # 3. Having a very recent passwd_changed_on (within reasonable time since creation)
+        # Check if user has the oauth_user custom field set to true
+        # This is more reliable than time-based checks
+        custom_value = self.custom_field_values.find { |cv| cv.custom_field.name == 'OAuth User' }
+        return custom_value && custom_value.value == '1' if custom_value
 
+        # Fallback to time-based check for backward compatibility
         return false if passwd_changed_on.nil?
         return false if must_change_passwd
 
@@ -18,6 +19,31 @@ module BlessThisRedmineSso
         end
 
         false
+      end
+
+      def mark_as_oauth_user!
+        # Set custom field to mark this user as OAuth user
+        cf = CustomField.find_by(name: 'OAuth User', type: 'UserCustomField')
+        unless cf
+          # Create the custom field if it doesn't exist
+          cf = UserCustomField.create!(
+            name: 'OAuth User',
+            field_format: 'bool',
+            is_required: false,
+            is_filter: true,
+            searchable: false,
+            visible: false, # Hidden from UI
+            editable: false
+          )
+        end
+
+        # Set the value - use custom_values (ActiveRecord relation) not custom_field_values (array)
+        cv = self.custom_values.find_or_initialize_by(custom_field_id: cf.id)
+        cv.value = '1'
+        cv.save!
+
+        # Reload to refresh custom_field_values cache
+        self.reload
       end
     end
   end

@@ -59,6 +59,9 @@ class OauthController < ApplicationController
             user = find_or_create_user(user_info)
             
             if user&.active?
+              # Mark user as OAuth user
+              user.mark_as_oauth_user! if user.respond_to?(:mark_as_oauth_user!)
+
               # Log the user in
               user.last_login_on = Time.now
               user.save!
