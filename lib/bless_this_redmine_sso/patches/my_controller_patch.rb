@@ -14,23 +14,21 @@ module BlessThisRedmineSso
 
         # If SSO-only mode is enabled, ALL users must use external password management
         if settings['oauth_sso_only'] == '1' || settings['oauth_sso_only'] == true
-          provider_name = settings['oauth_provider_name'] || 'SSO Provider'
           casdoor_url = ENV['CASDOOR_EXTERNAL_URL'] || 'http://localhost:8082'
 
           Rails.logger.info "SSO-only mode active, redirecting to #{casdoor_url}/account"
 
-          flash[:error] = "Password management is handled by #{provider_name}. Please visit your SSO provider to change your password."
+          flash[:error] = "Password management and User Information is handled by your corporate SSO provider. Please visit your SSO provider to change them."
           redirect_to "#{casdoor_url}/account" and return
         end
 
         # If SSO-only is disabled, check if current user is an OAuth user
         if User.current.respond_to?(:is_oauth_user?) && User.current.is_oauth_user?
-          provider_name = settings['oauth_provider_name'] || 'SSO Provider'
           casdoor_url = ENV['CASDOOR_EXTERNAL_URL'] || 'http://localhost:8082'
 
           Rails.logger.info "OAuth user detected, redirecting to #{casdoor_url}/account"
 
-          flash[:error] = "Password management for #{provider_name} users is handled externally. Please visit #{provider_name} to change your password."
+          flash[:error] = "Password management and User Information is handled by your corporate SSO provider. Please visit your SSO provider to change them."
           redirect_to "#{casdoor_url}/account" and return
         end
 
